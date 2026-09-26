@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SAR Planner Calculator | MRSC Kuantan</title>
+  <link rel="icon" type="image/png" href="APMM-Logo.png">
+  <link rel="apple-touch-icon" href="APMM-Logo.png">
+  <meta name="description" content="SAR Planner Calculator untuk pengiraan haluan, halaju, masa, jarak dan vektor paduan maritim mengikut standard IAMSAR dan MRSC Kuantan.">
+  
+  <link rel="stylesheet" href="landing.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <script>
+    (function() {
+      try {
+        var theme = localStorage.getItem('nautical_theme') || 'dark';
+        if (theme === 'light') {
+          document.documentElement.setAttribute('data-theme', 'light');
+        }
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body>
+
+  <!-- Theme Toggle -->
+  <div class="theme-switch-container">
+    <button id="btn-theme-toggle" class="btn-theme-toggle" type="button" title="Tukar Mod Cerah / Mod Gelap">
+      <svg class="theme-icon-sun" viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" fill="none" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      <svg class="theme-icon-moon" viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" fill="none" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      <span id="theme-text">Mod Cerah</span>
+    </button>
+  </div>
+
+  <!-- Main Card -->
+  <main class="landing-card">
+    <div class="logo-container">
+      <img src="APMM-Logo.png" alt="Logo APMM" class="brand-logo" width="82" height="82">
+    </div>
+
+    <div>
+      <span class="title-badge">Aplikasi Navigasi Maritim</span>
+      <h1 class="landing-title">SAR Planner Calculator</h1>
+      <p class="landing-subtitle">MRSC Kuantan</p>
+    </div>
+
+    <!-- Feature badges -->
+    <div class="feature-pills">
+      <span class="feature-pill">🧭 Dead Reckoning</span>
+      <span class="feature-pill">📐 Vektor Paduan (Resultant)</span>
+      <span class="feature-pill">🗺️ Peta Laut OpenSeaMap</span>
+      <span class="feature-pill">📱 Mesra Mobile & PC</span>
+    </div>
+
+    <!-- Support Box -->
+    <section class="support-box">
+      <div class="support-box-header">
+        <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
+        <span>Sokong Projek Ini</span>
+      </div>
+      <p>
+        Aplikasi ini dibina untuk kegunaan warga pelaut dan pelajar navigasi. Jika anda mendapati aplikasi ini bermanfaat, sudi kiranya menderma seikhlas hati untuk kos pelayan (server Vercel) dan secawan kopi ☕.
+      </p>
+    </section>
+
+    <!-- Call to Actions -->
+    <div class="actions-container">
+      <a href="https://toyyibpay.com/Duit-Kopi-Apps-SAR-Planner" target="_blank" rel="noopener noreferrer" class="btn-derma" id="btn-derma" title="Belanja kopi melalui ToyyibPay">
+        <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" fill="none" stroke-width="2"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
+        <span>Belanja Kopi</span>
+      </a>
+
+      <a href="/kalkulator" class="btn-proceed" id="btn-proceed" title="Saya Janji akan derma ke Masjid/Sekolah Agama">
+        <span>Saya Janji akan derma ke Masjid/Sekolah Agama atas nama Penyelia App ini</span>
+      </a>
+
+      <a href="/kalkulator" class="link-direct-proceed" id="link-direct-proceed" title="Teruskan terus ke aplikasi">
+        <span>teruskan ke aplikasi</span>
+        <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" fill="none" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+      </a>
+    </div>
+
+    <!-- Security footnote -->
+    <div class="gateway-note">
+      <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" fill="none" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      <span>Pembayaran selamat FPX melalui Gerbang ToyyibPay</span>
+    </div>
+  </main>
+
+  <footer class="landing-footer">
+    <p>&copy; 2026 Agensi Penguatkuasaan Maritim Malaysia (APMM) &bull; Navigasi Nautika</p>
+  </footer>
+
+  <script>
+    // Theme toggle handling
+    const btnTheme = document.getElementById('btn-theme-toggle');
+    const themeText = document.getElementById('theme-text');
+
+    function updateThemeText() {
+      const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+      if (themeText) {
+        themeText.textContent = isLight ? 'Mod Gelap' : 'Mod Cerah';
+      }
+    }
+
+    updateThemeText();
+
+    if (btnTheme) {
+      btnTheme.addEventListener('click', function() {
+        const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+        if (isLight) {
+          document.documentElement.removeAttribute('data-theme');
+          localStorage.setItem('nautical_theme', 'dark');
+        } else {
+          document.documentElement.setAttribute('data-theme', 'light');
+          localStorage.setItem('nautical_theme', 'light');
+        }
+        updateThemeText();
+      });
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,154 @@
+clc; clear;
+
+% ================= FIGURE =================
+f = figure('Name','Carta Navigasi Nautika','NumberTitle','off', ...
+           'Position',[100 100 1000 700], ...
+           'MenuBar','figure','ToolBar','figure', ...
+           'WindowStyle','normal');
+
+% ================= AXES =================
+ax = axes('Parent',f,'Position',[0.35 0.1 0.6 0.85]);
+hold(ax,'on'); grid(ax,'on'); axis(ax,'equal');
+xlabel(ax,'Timur (+X)');
+ylabel(ax,'Utara (+Y)');
+title(ax,'Carta Navigasi (Origin Kekal di 0,0)');
+
+drawCompass(ax);
+updateAxis(ax,[0 0]);
+
+% ================= DATA =================
+data.points = [0 0];
+data.colors = lines(10);
+data.colorIndex = 1;
+data.scale = 1; % cm per NM
+guidata(f,data);
+
+% ================= UI =================
+uicontrol(f,'Style','text','Units','normalized','Position',[0.05 0.85 0.25 0.05], ...
+          'String','Bearing (°)','HorizontalAlignment','left');
+
+bearingBox = uicontrol(f,'Style','edit','Units','normalized','Position',[0.05 0.80 0.25 0.05],'String','90');
+
+uicontrol(f,'Style','text','Units','normalized','Position',[0.05 0.73 0.25 0.05], ...
+          'String','Jarak (NM)','HorizontalAlignment','left');
+
+lengthBox = uicontrol(f,'Style','edit','Units','normalized','Position',[0.05 0.68 0.25 0.05],'String','2');
+
+uicontrol(f,'Style','pushbutton','Units','normalized','Position',[0.05 0.60 0.25 0.05], ...
+          'String','Tambah Vector', ...
+          'Callback',@(s,e) tambahVector(f,ax,bearingBox,lengthBox));
+
+uicontrol(f,'Style','pushbutton','Units','normalized','Position',[0.05 0.53 0.25 0.05], ...
+          'String','Calculate Result', ...
+          'Callback',@(s,e) calculateResult(f,ax));
+
+uicontrol(f,'Style','pushbutton','Units','normalized','Position',[0.05 0.46 0.25 0.05], ...
+          'String','Reset', ...
+          'Callback',@(s,e) resetPlot(f,ax,bearingBox,lengthBox));
+
+resultLabel = uicontrol(f,'Style','text','Units','normalized','Position',[0.05 0.36 0.25 0.08], ...
+                        'FontSize',12,'HorizontalAlignment','left','String','Result:');
+
+scaleLabel = uicontrol(f,'Style','text','Units','normalized','Position',[0.05 0.28 0.25 0.08], ...
+                       'FontSize',12,'HorizontalAlignment','left','String','Skala A4:');
+
+guidata(f,data);
+
+% ================= FUNCTIONS =================
+function drawCompass(ax)
+    text(ax,0,18,'N','FontWeight','bold','HorizontalAlignment','center');
+    text(ax,18,0,'E','FontWeight','bold','HorizontalAlignment','center');
+    text(ax,0,-18,'S','FontWeight','bold','HorizontalAlignment','center');
+    text(ax,-18,0,'W','FontWeight','bold','HorizontalAlignment','center');
+end
+
+function updateAxis(ax,pts)
+    margin = 2;
+    m = max(abs(pts(:))) + margin;
+    if m < 5, m = 5; end
+    xlim(ax,[-m m]);
+    ylim(ax,[-m m]);
+end
+
+function tambahVector(f,ax,bearingBox,lengthBox)
+    data = guidata(f);
+    B = str2double(get(bearingBox,'String'));
+    L = str2double(get(lengthBox,'String'));
+    if isnan(B) || isnan(L), return; end
+
+    theta = 90 - B;
+    dx = L*cosd(theta);
+    dy = L*sind(theta);
+
+    x0 = data.points(end,1);
+    y0 = data.points(end,2);
+    x1 = x0 + dx;
+    y1 = y0 + dy;
+
+    c = data.colors(data.colorIndex,:);
+    plot(ax,[x0 x1],[y0 y1],'LineWidth',0.8,'Color',c);
+
+    xm = (x0+x1)/2;
+    ym = (y0+y1)/2;
+    quiver(ax,xm,ym,dx/2,dy/2,0,'Color',c,'LineWidth',0.8,'MaxHeadSize',0.05);
+
+    text(ax,xm,ym+0.3,sprintf('%.0f° | %.1f NM',B,L), ...
+         'FontSize',12,'HorizontalAlignment','center','Color',c);
+
+    data.points = [data.points; x1 y1];
+    data.colorIndex = mod(data.colorIndex, size(data.colors,1)) + 1;
+    guidata(f,data);
+    updateAxis(ax,data.points);
+end
+
+function calculateResult(f,ax)
+    data = guidata(f);
+    if size(data.points,1)<2, return; end
+
+    p0 = data.points(1,:);
+    p1 = data.points(end,:);
+    dx = p1(1)-p0(1);
+    dy = p1(2)-p0(2);
+
+    plot(ax,[p0(1) p1(1)],[p0(2) p1(2)],'r','LineWidth',1);
+    xm = mean([p0(1) p1(1)]);
+    ym = mean([p0(2) p1(2)]);
+    quiver(ax,xm,ym,dx/2,dy/2,0,'r','LineWidth',1,'MaxHeadSize',0.05);
+
+    dist = hypot(dx,dy);
+    bearing = mod(90-atan2d(dy,dx),360);
+
+    text(ax,xm,ym+0.4,sprintf('RESULT\n%.0f° | %.2f NM',bearing,dist), ...
+         'FontSize',13,'FontWeight','bold','Color','r','HorizontalAlignment','center');
+
+    set(findobj('String','Result:'),'String', ...
+        sprintf('Result:\nBearing: %.0f°\nJarak: %.2f NM',bearing,dist));
+
+    % ===== Skala A4 =====
+    range = max(abs(data.points(:)));
+    scale_cm = min(18/range, 26/range);
+    nm_per_cm = round((1/scale_cm)/2)*2;
+    nm_2cm = nm_per_cm*2;
+
+    set(findobj('String','Skala A4:'),'String', ...
+        sprintf('Skala A4:\n1 cm = %d NM\n2 cm = %d NM',nm_per_cm,nm_2cm));
+
+    updateAxis(ax,data.points);
+end
+
+function resetPlot(f,ax,bearingBox,lengthBox)
+    cla(ax); grid(ax,'on'); axis(ax,'equal');
+    xlabel(ax,'Timur (+X)'); ylabel(ax,'Utara (+Y)');
+    title(ax,'Carta Navigasi (Origin Kekal di 0,0)');
+    drawCompass(ax);
+    updateAxis(ax,[0 0]);
+
+    data.points = [0 0];
+    data.colorIndex = 1;
+    guidata(f,data);
+
+    set(bearingBox,'String','90');
+    set(lengthBox,'String','2');
+    set(findobj('String','Result:'),'String','Result:');
+    set(findobj('String','Skala A4:'),'String','Skala A4:');
+end
