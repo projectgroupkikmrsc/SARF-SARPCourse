@@ -3234,19 +3234,34 @@
 
           <!-- Mod 2: Peta Leaflet (Peta Darat OSM + Peta Laut OpenSeaMap) -->
           <div id="leafletMap" style="display: none;"></div>
+          <!-- Mod 2 Overlay: Windy-Style Animated Particle Flow & Vector Field Canvas -->
+          <canvas id="windyFlowCanvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 430; display: none;"></canvas>
           <!-- Mod 2 Overlay: Monte Carlo Particle Simulation Canvas -->
           <canvas id="mcCanvasOverlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 450; display: none;"></canvas>
 
           <!-- Floating Map Layers & Vector Overlays Toggle Bar (Aktif dalam Mod Peta) -->
           <div class="map-overlay-layer-controls" id="map-overlay-controls" style="display: none;">
             <div class="map-overlay-btn-group">
+              <button type="button" class="map-layer-pill active" id="btn-toggle-flow-wind" data-flow-mode="wind" title="Animasi Aliran Zarah Angin (Windy Streamlines)">
+                <span class="pill-icon">💨</span>
+                <span class="pill-label">Aliran Angin</span>
+              </button>
+              <button type="button" class="map-layer-pill" id="btn-toggle-flow-current" data-flow-mode="current" title="Animasi Aliran Zarah Arus Laut (Ocean Current Streamlines)">
+                <span class="pill-icon">🌊</span>
+                <span class="pill-label">Aliran Arus</span>
+              </button>
+              <button type="button" class="map-layer-pill active" id="btn-toggle-flow-grid" data-flow-mode="grid" title="Grid Anak Panah Vektor &amp; Kelajuan (Velocity Vector Grid)">
+                <span class="pill-icon">🏹</span>
+                <span class="pill-label">Grid Panah</span>
+              </button>
+              <span style="width: 1px; height: 16px; background: var(--border-color); margin: 0 2px;"></span>
               <button type="button" class="map-layer-pill active" id="btn-toggle-wind-layer" data-map-layer="wind" title="Togol Vektor &amp; Arah Angin (ASW)">
                 <span class="pill-icon">💨</span>
-                <span class="pill-label">Angin (ASW)</span>
+                <span class="pill-label">Vektor Angin</span>
               </button>
               <button type="button" class="map-layer-pill active" id="btn-toggle-current-layer" data-map-layer="current" title="Togol Vektor Arus Laut (TWC / SC)">
                 <span class="pill-icon">🌊</span>
-                <span class="pill-label">Arus (TWC)</span>
+                <span class="pill-label">Vektor Arus</span>
               </button>
               <button type="button" class="map-layer-pill active" id="btn-toggle-drift-layer" data-map-layer="driftTriangle" title="Togol Segitiga Hanyutan (Drift Triangle)">
                 <span class="pill-icon">📐</span>

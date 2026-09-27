@@ -854,6 +854,23 @@
       datumRadius: true
     },
 
+    // State untuk Animasi Aliran Zarah Ala Windy (Windy-Style Streamlines & Vector Grid)
+    flowField: {
+      active: true,
+      mode: 'wind', // 'wind', 'current', 'both', 'none'
+      showGridArrows: true,
+      particleCount: 650,
+      particles: [],
+      speedFactor: 1.0,
+      animId: null
+    },
+    metoceanHourly: {
+      windHours: [],
+      marineHours: [],
+      startDate: null,
+      endDate: null
+    },
+
     // State untuk Penjana Waypoint (Feature 4: Turn-by-Turn Waypoints Generator)
     waypointGen: {
       patternType: 'SS',
@@ -1262,8 +1279,12 @@
     btnExportWpKml: document.getElementById('btn-export-wp-kml'),
     summaryPlanWaypointVal: document.getElementById('summary-plan-waypoint-val'),
 
-    // Floating Map Overlays Toolbar (Feature 5)
+    // Floating Map Overlays Toolbar (Feature 5) & Windy Flow Controls
     mapOverlayControls: document.getElementById('map-overlay-controls'),
+    windyFlowCanvas: document.getElementById('windyFlowCanvas'),
+    btnToggleFlowWind: document.getElementById('btn-toggle-flow-wind'),
+    btnToggleFlowCurrent: document.getElementById('btn-toggle-flow-current'),
+    btnToggleFlowGrid: document.getElementById('btn-toggle-flow-grid'),
     btnToggleWindLayer: document.getElementById('btn-toggle-wind-layer'),
     btnToggleCurrentLayer: document.getElementById('btn-toggle-current-layer'),
     btnToggleDriftLayer: document.getElementById('btn-toggle-drift-layer'),
@@ -3627,10 +3648,13 @@
         el.cursorCoords.textContent = `GPS: Lat ${formatCoordinate(e.latlng.lat, true)} | Lon ${formatCoordinate(e.latlng.lng, false)}`;
       });
 
-      // Kemaskini kedudukan zarah Monte Carlo bila peta di-pan / di-zoom
+      // Kemaskini kedudukan zarah Monte Carlo & Aliran Windy bila peta di-pan / di-zoom
       leafletMap.on('viewreset move zoom resize', () => {
         if (state.monteCarlo && state.monteCarlo.isActive) {
           renderMonteCarloFrame();
+        }
+        if (state.flowField && state.flowField.active && state.displayMode === 'map') {
+          resizeWindyFlowCanvas();
         }
       });
     } catch (err) {
@@ -5592,8 +5616,38 @@
       // 4. Calculate Leeway & Final Datum
       calculateLeeway();
       calculateFinalDatum(true);
+
+      // Simpan siri ramalan setiap jam untuk slider masa & animasi Windy
+      state.metoceanHourly = {
+        windHours: matchingWindHours,
+        marineHours: matchingMarineHours,
+        startDate: startDate,
+        endDate: endDate,
+        avgWindDir,
+        avgWindSpeed,
+        avgCurrentDir,
+        avgCurrentSpeed
+      };
+
+      const totalHours = Math.max(1.0, Math.round(((endDate.getTime() - startDate.getTime()) / 3600000) * 10) / 10);
+      if (el.mcTimeSlider) {
+        el.mcTimeSlider.disabled = false;
+        el.mcTimeSlider.max = totalHours;
+        if (!state.monteCarlo.isActive) {
+          state.monteCarlo.maxTime = totalHours;
+          state.monteCarlo.currentTime = 0;
+        }
+      }
+      if (el.mcSliderMaxTime) {
+        el.mcSliderMaxTime.textContent = `T + ${totalHours.toFixed(1)} Jam`;
+      }
+      if (el.mcTimelineBar) {
+        el.mcTimelineBar.style.display = 'flex';
+      }
+
       if (state.displayMode === 'map') {
         updateLeafletMap();
+        startWindyFlowEngine();
       }
       saveAppState();
 
@@ -6677,6 +6731,7 @@
 
       el.canvas.style.display = 'block';
       el.mapContainer.style.display = 'none';
+      if (el.windyFlowCanvas) el.windyFlowCanvas.style.display = 'none';
       if (el.mcCanvasOverlay) el.mcCanvasOverlay.style.display = 'none';
       if (el.mcTimelineBar) el.mcTimelineBar.style.display = 'none';
       if (el.mapOverlayControls) el.mapOverlayControls.style.display = 'none';
@@ -6684,6 +6739,7 @@
       el.compassBadge.style.display = 'block';
 
       el.chartTipText.textContent = 'Tip: Seret tetikus untuk gerakkan carta • Skrol untuk Zum';
+      stopWindyFlowEngine();
       resizeCanvas();
     } else {
       if (el.viewModeTitle) el.viewModeTitle.textContent = 'Peta Laut & Terestrial (OpenSeaMap)';
@@ -6711,6 +6767,9 @@
           leafletMap.invalidateSize();
           updateLeafletMap();
           syncMapOverlaysVisibility();
+          if (state.flowField && state.flowField.active && state.flowField.mode !== 'none') {
+            startWindyFlowEngine();
+          }
         }
       };
 
@@ -6853,6 +6912,12 @@
           allocS: [1, 2, 3, 4, 5].map(i => document.getElementById(`plan-alloc-s-${i}`)?.value || '')
         },
         finalDatum: state.finalDatum,
+        mapOverlays: state.mapOverlays,
+        flowField: {
+          active: state.flowField.active,
+          mode: state.flowField.mode,
+          showGridArrows: state.flowField.showGridArrows
+        },
         activeTab: state.activeTab,
         displayMode: state.displayMode
       };
@@ -6869,6 +6934,15 @@
       if (!raw) return false;
       const data = JSON.parse(raw);
       if (!data || typeof data !== 'object') return false;
+
+      if (data.mapOverlays) {
+        state.mapOverlays = Object.assign(state.mapOverlays, data.mapOverlays);
+      }
+      if (data.flowField) {
+        state.flowField.active = data.flowField.active !== false;
+        state.flowField.mode = data.flowField.mode || 'wind';
+        state.flowField.showGridArrows = data.flowField.showGridArrows !== false;
+      }
 
       // Tab 1
       if (Array.isArray(data.vectors)) state.vectors = data.vectors;
@@ -8865,6 +8939,53 @@
       state.view.touchStartDist = 0;
     });
 
+    // Butang Floating Overlays: Windy Particle Flow & Vector Overlays (Feature 5)
+    if (el.btnToggleFlowWind) {
+      el.btnToggleFlowWind.addEventListener('click', () => setFlowMode('wind'));
+    }
+    if (el.btnToggleFlowCurrent) {
+      el.btnToggleFlowCurrent.addEventListener('click', () => setFlowMode('current'));
+    }
+    if (el.btnToggleFlowGrid) {
+      el.btnToggleFlowGrid.addEventListener('click', () => toggleFlowGrid());
+    }
+
+    if (el.btnToggleWindLayer) {
+      el.btnToggleWindLayer.addEventListener('click', () => {
+        state.mapOverlays.wind = !state.mapOverlays.wind;
+        syncMapOverlaysVisibility();
+        saveAppState();
+      });
+    }
+    if (el.btnToggleCurrentLayer) {
+      el.btnToggleCurrentLayer.addEventListener('click', () => {
+        state.mapOverlays.current = !state.mapOverlays.current;
+        syncMapOverlaysVisibility();
+        saveAppState();
+      });
+    }
+    if (el.btnToggleDriftLayer) {
+      el.btnToggleDriftLayer.addEventListener('click', () => {
+        state.mapOverlays.driftTriangle = !state.mapOverlays.driftTriangle;
+        syncMapOverlaysVisibility();
+        saveAppState();
+      });
+    }
+    if (el.btnTogglePatternLayer) {
+      el.btnTogglePatternLayer.addEventListener('click', () => {
+        state.mapOverlays.searchTracks = !state.mapOverlays.searchTracks;
+        syncMapOverlaysVisibility();
+        saveAppState();
+      });
+    }
+    if (el.btnToggleRadiusLayer) {
+      el.btnToggleRadiusLayer.addEventListener('click', () => {
+        state.mapOverlays.datumRadius = !state.mapOverlays.datumRadius;
+        syncMapOverlaysVisibility();
+        saveAppState();
+      });
+    }
+
     window.addEventListener('resize', () => {
       if (state.displayMode === 'grid') {
         resizeCanvas();
@@ -8874,8 +8995,315 @@
           resizeMonteCarloCanvas();
           renderMonteCarloFrame();
         }
+        if (state.flowField && state.flowField.active && state.displayMode === 'map') {
+          resizeWindyFlowCanvas();
+        }
       }
     });
+  }
+
+  // =========================================================================
+  // ANIMASI ALIRAN ZARAH ANGIN & ARUS LAUT ALA WINDY (WINDY-STYLE STREAMLINES & VECTOR GRID)
+  // =========================================================================
+
+  function initWindyParticles() {
+    if (!el.windyFlowCanvas) return;
+    const count = state.flowField.particleCount || 650;
+    const w = el.windyFlowCanvas.width || 800;
+    const h = el.windyFlowCanvas.height || 600;
+    const particles = [];
+
+    for (let i = 0; i < count; i++) {
+      particles.push({
+        x: Math.random() * w,
+        y: Math.random() * h,
+        oldX: 0,
+        oldY: 0,
+        age: Math.floor(Math.random() * 60),
+        maxAge: 40 + Math.floor(Math.random() * 50),
+        speedMult: 0.8 + Math.random() * 0.4
+      });
+    }
+    state.flowField.particles = particles;
+  }
+
+  function resizeWindyFlowCanvas() {
+    if (!el.windyFlowCanvas || !el.canvasWrapper) return;
+    const rect = el.canvasWrapper.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+
+    if (el.windyFlowCanvas.width !== rect.width || el.windyFlowCanvas.height !== rect.height) {
+      el.windyFlowCanvas.width = rect.width;
+      el.windyFlowCanvas.height = rect.height;
+      initWindyParticles();
+    }
+  }
+
+  function getMetoceanVectorAtTime(simHour = 0, mode = 'wind') {
+    let speed = 0;
+    let dir = 0; // Arah kompas asal
+    let flowHeading = 0; // Arah zarah mengalir di skrin
+
+    if (mode === 'wind') {
+      const list = state.metoceanHourly?.windHours || [];
+      if (list.length > 0) {
+        const idx = Math.min(Math.max(0, Math.floor(simHour)), list.length - 1);
+        speed = list[idx].speed;
+        dir = list[idx].direction; // Angin datang DARI arah dir
+      } else if (state.aswResultant && state.aswResultant.avgSpeed > 0) {
+        speed = state.aswResultant.avgSpeed;
+        dir = state.aswResultant.bearing;
+      } else {
+        speed = parseFloat(el.aswSpeedInput?.value) || 12.0;
+        dir = parseFloat(el.aswBearingInput?.value) || 45.0;
+      }
+      // Vektor aliran angin: bertiup KE arah (dir + 180) % 360
+      flowHeading = ((dir + 180) % 360 + 360) % 360;
+
+    } else if (mode === 'current') {
+      const list = state.metoceanHourly?.marineHours || [];
+      if (list.length > 0) {
+        const idx = Math.min(Math.max(0, Math.floor(simHour)), list.length - 1);
+        speed = list[idx].velocity;
+        dir = list[idx].direction; // Arus mengalir KE arah dir
+      } else if (state.scResultant && state.scResultant.speed > 0) {
+        speed = state.scResultant.speed;
+        dir = state.scResultant.bearing;
+      } else {
+        speed = parseFloat(el.scSpeedInput?.value) || 1.5;
+        dir = parseFloat(el.scBearingInput?.value) || 220.0;
+      }
+      // Vektor aliran arus laut: mengalir KE arah dir
+      flowHeading = ((dir % 360) + 360) % 360;
+    }
+
+    return { speed, dir, flowHeading };
+  }
+
+  function getWindyFlowColor(speed, mode, lifeRatio) {
+    const alpha = Math.max(0, Math.min(1, Math.sin(lifeRatio * Math.PI))) * 0.85;
+    if (mode === 'wind') {
+      if (speed < 8) return `rgba(56, 189, 248, ${alpha})`; // Cyan
+      if (speed < 16) return `rgba(52, 211, 153, ${alpha})`; // Emerald
+      if (speed < 24) return `rgba(251, 191, 36, ${alpha})`; // Amber
+      return `rgba(244, 63, 94, ${alpha})`; // Rose / Red
+    } else {
+      if (speed < 0.6) return `rgba(56, 189, 248, ${alpha})`; // Sky
+      if (speed < 1.4) return `rgba(99, 102, 241, ${alpha})`; // Indigo
+      return `rgba(236, 72, 153, ${alpha})`; // Vivid Magenta
+    }
+  }
+
+  function drawVectorGridOverlay(ctx, width, height, vector, mode) {
+    if (!state.flowField.showGridArrows || !vector || vector.speed <= 0.05) return;
+
+    const spacing = 110;
+    const rad = ((90 - vector.flowHeading) * Math.PI) / 180;
+    const arrowLen = Math.max(16, Math.min(32, 16 + vector.speed * (mode === 'wind' ? 0.6 : 6.0)));
+    const dx = Math.cos(rad) * arrowLen;
+    const dy = -Math.sin(rad) * arrowLen;
+
+    ctx.save();
+    ctx.font = '600 10px "JetBrains Mono", Consolas, monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    const arrowColor = mode === 'wind' ? '#38bdf8' : '#a78bfa';
+    const textColor = mode === 'wind' ? '#e0f2fe' : '#ede9fe';
+
+    for (let x = spacing * 0.6; x < width; x += spacing) {
+      for (let y = spacing * 0.6; y < height; y += spacing) {
+        // Lukis Batang Panah & Kepala Panah
+        const endX = x + dx;
+        const endY = y + dy;
+
+        ctx.strokeStyle = arrowColor;
+        ctx.fillStyle = arrowColor;
+        ctx.lineWidth = 1.8;
+
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(endX, endY);
+        ctx.stroke();
+
+        // Kepala Panah (Arrowhead)
+        const headLen = 6.5;
+        const headAngle = Math.PI / 6;
+        const angle = Math.atan2(dy, dx);
+
+        ctx.beginPath();
+        ctx.moveTo(endX, endY);
+        ctx.lineTo(endX - headLen * Math.cos(angle - headAngle), endY - headLen * Math.sin(angle - headAngle));
+        ctx.lineTo(endX - headLen * Math.cos(angle + headAngle), endY - headLen * Math.sin(angle + headAngle));
+        ctx.closePath();
+        ctx.fill();
+
+        // Badge Kelajuan (Speed Badge)
+        const badgeText = `${vector.speed.toFixed(1)}kt`;
+        const textWidth = ctx.measureText(badgeText).width;
+        const badgeY = y - 10;
+
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.roundRect(x - textWidth / 2 - 4, badgeY - 7, textWidth + 8, 14, 3);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = textColor;
+        ctx.fillText(badgeText, x, badgeY);
+      }
+    }
+    ctx.restore();
+  }
+
+  function renderWindyFlowLoop(timestamp) {
+    if (!state.flowField.active || state.flowField.mode === 'none' || state.displayMode !== 'map' || state.activeTab === 'vector') {
+      if (el.windyFlowCanvas) {
+        const ctx = el.windyFlowCanvas.getContext('2d');
+        if (ctx) ctx.clearRect(0, 0, el.windyFlowCanvas.width, el.windyFlowCanvas.height);
+      }
+      state.flowField.animId = null;
+      return;
+    }
+
+    if (!el.windyFlowCanvas) {
+      state.flowField.animId = null;
+      return;
+    }
+
+    const ctx = el.windyFlowCanvas.getContext('2d');
+    if (!ctx) {
+      state.flowField.animId = null;
+      return;
+    }
+
+    const w = el.windyFlowCanvas.width;
+    const h = el.windyFlowCanvas.height;
+    if (w <= 0 || h <= 0) {
+      resizeWindyFlowCanvas();
+    }
+
+    const mode = state.flowField.mode;
+    const simHour = state.monteCarlo.currentTime || 0;
+    const vector = getMetoceanVectorAtTime(simHour, mode);
+
+    // 1. Trail Fade (Destination-Out) untuk kesan streamline Windy yang halus
+    ctx.save();
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.085)';
+    ctx.fillRect(0, 0, w, h);
+    ctx.restore();
+
+    // 2. Simulasi & Lukisan Zarah Aliran
+    if (vector.speed > 0.05) {
+      const flowRad = ((90 - vector.flowHeading) * Math.PI) / 180;
+      const baseDx = Math.cos(flowRad);
+      const baseDy = -Math.sin(flowRad);
+      const baseStep = Math.max(0.6, vector.speed * (mode === 'wind' ? 0.24 : 1.8)) * state.flowField.speedFactor;
+
+      const particles = state.flowField.particles;
+      if (particles.length === 0) initWindyParticles();
+
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+        p.oldX = p.x;
+        p.oldY = p.y;
+
+        const step = baseStep * p.speedMult;
+        p.x += baseDx * step;
+        p.y += baseDy * step;
+        p.age++;
+
+        // Semak sempadan atau umur tamat
+        if (p.age >= p.maxAge || p.x < 0 || p.x > w || p.y < 0 || p.y > h) {
+          p.x = Math.random() * w;
+          p.y = Math.random() * h;
+          p.oldX = p.x;
+          p.oldY = p.y;
+          p.age = 0;
+          p.maxAge = 40 + Math.floor(Math.random() * 50);
+          continue;
+        }
+
+        // Lukis garis segmen zarah
+        const color = getWindyFlowColor(vector.speed, mode, p.age / p.maxAge);
+        ctx.beginPath();
+        ctx.moveTo(p.oldX, p.oldY);
+        ctx.lineTo(p.x, p.y);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = mode === 'current' ? 2.0 : 1.4;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+      }
+
+      // 3. Lukis Grid Anak Panah jika diaktifkan
+      if (state.flowField.showGridArrows) {
+        drawVectorGridOverlay(ctx, w, h, vector, mode);
+      }
+    }
+
+    state.flowField.animId = requestAnimationFrame(renderWindyFlowLoop);
+  }
+
+  function startWindyFlowEngine() {
+    if (!el.windyFlowCanvas) return;
+    el.windyFlowCanvas.style.setProperty('display', 'block', 'important');
+    resizeWindyFlowCanvas();
+    if (state.flowField.particles.length === 0) {
+      initWindyParticles();
+    }
+    state.flowField.active = true;
+
+    if (!state.flowField.animId) {
+      state.flowField.animId = requestAnimationFrame(renderWindyFlowLoop);
+    }
+    updateFlowButtonsUI();
+  }
+
+  function stopWindyFlowEngine() {
+    state.flowField.active = false;
+    if (state.flowField.animId) {
+      cancelAnimationFrame(state.flowField.animId);
+      state.flowField.animId = null;
+    }
+    if (el.windyFlowCanvas) {
+      const ctx = el.windyFlowCanvas.getContext('2d');
+      if (ctx) ctx.clearRect(0, 0, el.windyFlowCanvas.width, el.windyFlowCanvas.height);
+      el.windyFlowCanvas.style.display = 'none';
+    }
+    updateFlowButtonsUI();
+  }
+
+  function setFlowMode(mode) {
+    if (state.flowField.mode === mode && state.flowField.active) {
+      // Toggle off jika ditekan butang yang sama
+      stopWindyFlowEngine();
+      state.flowField.mode = 'none';
+    } else {
+      state.flowField.mode = mode;
+      state.flowField.active = true;
+      startWindyFlowEngine();
+    }
+    updateFlowButtonsUI();
+    saveAppState();
+  }
+
+  function toggleFlowGrid() {
+    state.flowField.showGridArrows = !state.flowField.showGridArrows;
+    updateFlowButtonsUI();
+    saveAppState();
+  }
+
+  function updateFlowButtonsUI() {
+    const isWind = state.flowField.active && state.flowField.mode === 'wind';
+    const isCurrent = state.flowField.active && state.flowField.mode === 'current';
+    const isGrid = state.flowField.showGridArrows;
+
+    if (el.btnToggleFlowWind) el.btnToggleFlowWind.classList.toggle('active', isWind);
+    if (el.btnToggleFlowCurrent) el.btnToggleFlowCurrent.classList.toggle('active', isCurrent);
+    if (el.btnToggleFlowGrid) el.btnToggleFlowGrid.classList.toggle('active', isGrid);
   }
 
   // =========================================================================
@@ -9137,11 +9565,22 @@
 
   function updateMonteCarloTimeUI() {
     const t = state.monteCarlo.currentTime;
-    if (el.mcSliderCurrTime) {
-      el.mcSliderCurrTime.textContent = `T + ${t.toFixed(1)} Jam`;
-    }
     if (el.mcTimeSlider) {
       el.mcTimeSlider.value = t;
+    }
+
+    const windVec = getMetoceanVectorAtTime(t, 'wind');
+    const currVec = getMetoceanVectorAtTime(t, 'current');
+
+    if (el.mcSliderCurrTime) {
+      let text = `T + ${t.toFixed(1)}j`;
+      if (windVec && windVec.speed > 0) {
+        text += ` • 💨 ${windVec.speed.toFixed(1)}kt (${Math.round(windVec.dir).toString().padStart(3, '0')}°)`;
+      }
+      if (currVec && currVec.speed > 0) {
+        text += ` • 🌊 ${currVec.speed.toFixed(2)}kt (${Math.round(currVec.dir).toString().padStart(3, '0')}°)`;
+      }
+      el.mcSliderCurrTime.textContent = text;
     }
   }
 
