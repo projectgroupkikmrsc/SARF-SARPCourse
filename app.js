@@ -900,6 +900,15 @@
     originLatInput: document.getElementById('origin-lat'),
     originLonInput: document.getElementById('origin-lon'),
     btnPickLocation: document.getElementById('btn-pick-location'),
+    btnFetchMetocean: document.getElementById('btn-fetch-metocean'),
+    btnFetchMetoceanHeader: document.getElementById('btn-fetch-metocean-header'),
+    btnFetchMetoceanAsw: document.getElementById('btn-fetch-metocean-asw'),
+    btnFetchMetoceanTwc: document.getElementById('btn-fetch-metocean-twc'),
+    iconFetchMetocean: document.getElementById('icon-fetch-metocean'),
+    textFetchMetocean: document.getElementById('text-fetch-metocean'),
+    modalMetocean: document.getElementById('modal-metocean'),
+    btnCloseMetoceanModal: document.getElementById('btn-close-metocean-modal'),
+    metoceanModalBody: document.getElementById('metocean-modal-body'),
     
     // Average Surface Wind (ASW)
     aswBearingInput: document.getElementById('asw-bearing-input'),
@@ -5048,6 +5057,378 @@
   }
 
   // =========================================================================
+  // METOCEAN DATA AUTO-FETCH (OPEN-METEO WEATHER & MARINE SATELLITE API)
+  // =========================================================================
+
+  function openMetoceanModal() {
+    if (el.modalMetocean) {
+      el.modalMetocean.style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+    }
+  }
+
+  function closeMetoceanModal() {
+    if (el.modalMetocean) {
+      el.modalMetocean.style.display = 'none';
+      document.body.style.overflow = '';
+    }
+  }
+
+  function renderMetoceanSummaryModal(data) {
+    if (!el.metoceanModalBody) return;
+
+    const driftStr = state.finalDatum
+      ? (state.finalDatum.divergence > 0
+          ? `${state.finalDatum.driftDistL.toFixed(2)} NM (Kiri) | ${state.finalDatum.driftDistR.toFixed(2)} NM (Kanan)`
+          : `${state.finalDatum.driftDist.toFixed(2)} NM`)
+      : '---';
+
+    const wcStr = state.wcVector
+      ? `${formatNauticalBearing(state.wcVector.bearing)} @ ${state.wcVector.speed.toFixed(2)} kts`
+      : '---';
+
+    const currentStr = data.hasMarineCurrent
+      ? `${formatNauticalBearing(data.avgCurrentDir)} @ ${data.avgCurrentSpeed.toFixed(2)} kts`
+      : '0.00 kts (Pesisir/Tasik)';
+
+    const html = `
+      <div style="display: flex; flex-direction: column; gap: 0.85rem;">
+        <div style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: var(--radius-sm); padding: 0.65rem 0.85rem; font-size: 0.78rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.4rem;">
+          <div>
+            <span style="color: var(--text-muted);">Lokasi Kejadian:</span> <strong>${formatCoordinate(data.lat, true)} | ${formatCoordinate(data.lon, false)}</strong>
+          </div>
+          <div>
+            <span style="color: var(--text-muted);">Sela Waktu:</span> <strong>${data.totalWindHours.toFixed(1)} Jam</strong>
+          </div>
+        </div>
+
+        <div class="metocean-stat-grid">
+          <div class="metocean-stat-card">
+            <div class="metocean-stat-title">Purata Angin (ASW)</div>
+            <div class="metocean-stat-value">${formatNauticalBearing(data.avgWindDir)} @ ${data.avgWindSpeed.toFixed(1)} kts</div>
+            <div class="metocean-stat-desc">${data.windHours.length} cerapan data angin 10m</div>
+          </div>
+          <div class="metocean-stat-card">
+            <div class="metocean-stat-title">Arus Angin (WC)</div>
+            <div class="metocean-stat-value">${wcStr}</div>
+            <div class="metocean-stat-desc">IAMSAR Fig N-1 Deflection</div>
+          </div>
+          <div class="metocean-stat-card">
+            <div class="metocean-stat-title">Arus Laut (SC)</div>
+            <div class="metocean-stat-value">${currentStr}</div>
+            <div class="metocean-stat-desc">Copernicus Marine Physics Model</div>
+          </div>
+          <div class="metocean-stat-card">
+            <div class="metocean-stat-title">Hanyutan Bersih (Drift)</div>
+            <div class="metocean-stat-value" style="color: #a78bfa;">${driftStr}</div>
+            <div class="metocean-stat-desc">Vektor TWC + Leeway Sasaran</div>
+          </div>
+        </div>
+
+        <!-- Ringkasan Cerapan Angin Berperingkat -->
+        <div style="border-top: 1px solid var(--border-color); padding-top: 0.65rem;">
+          <h4 style="margin: 0 0 0.4rem 0; font-size: 0.8rem; color: var(--accent-cyan);">Cerapan Angin Mengikut Jam (Hourly Metocean)</h4>
+          <div class="iamsar-table-responsive" style="max-height: 150px; overflow-y: auto;">
+            <table class="iamsar-data-table" style="font-size: 0.74rem;">
+              <thead>
+                <tr>
+                  <th>Waktu (Tempatan/UTC)</th>
+                  <th>Arah Angin (FROM)</th>
+                  <th>Kelajuan Angin (kts)</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${data.windHours.map(w => `
+                  <tr>
+                    <td>${w.time.replace('T', ' ')}</td>
+                    <td style="color: #38bdf8; font-weight: 600;">${formatNauticalBearing(w.direction)}</td>
+                    <td style="font-weight: 700;">${w.speed.toFixed(1)} kts</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: var(--radius-sm); padding: 0.65rem 0.85rem; font-size: 0.74rem; color: #34d399; display: flex; align-items: center; gap: 0.5rem;">
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          <span>Data angin (ASW), arus (WC/SC), hanyutan dan titik Datum L &amp; R telah dikemaskini secara automatik.</span>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.25rem;">
+          <button type="button" class="btn btn-primary" id="btn-metocean-view-map" style="padding: 0.5rem 1rem; font-size: 0.78rem;">
+            <span>Lihat Hasil pada Peta Laut</span>
+            <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          </button>
+        </div>
+      </div>
+    `;
+
+    el.metoceanModalBody.innerHTML = html;
+
+    const btnViewMap = document.getElementById('btn-metocean-view-map');
+    if (btnViewMap) {
+      btnViewMap.addEventListener('click', () => {
+        closeMetoceanModal();
+        if (state.displayMode !== 'map') {
+          switchDisplayMode('map');
+        } else if (leafletMap) {
+          leafletMap.invalidateSize();
+          updateLeafletMap();
+        }
+      });
+    }
+
+    openMetoceanModal();
+  }
+
+  async function fetchMarineMetoceanData() {
+    const lat = parseCoordinate(el.originLatInput ? el.originLatInput.value : '', true);
+    const lon = parseCoordinate(el.originLonInput ? el.originLonInput.value : '', false);
+
+    if (isNaN(lat) || isNaN(lon)) {
+      alert('Sila masukkan koordinat Latitud dan Longitud kejadian yang sah sebelum memuat turun data satelit.');
+      return;
+    }
+
+    const distressVal = el.distressDateTimeInput ? el.distressDateTimeInput.value : '';
+    const datumVal = el.datumDateTimeInput ? el.datumDateTimeInput.value : '';
+
+    let startDate = distressVal ? new Date(distressVal) : new Date();
+    let endDate = datumVal ? new Date(datumVal) : new Date(startDate.getTime() + 3600000);
+
+    if (isNaN(startDate.getTime())) startDate = new Date();
+    if (isNaN(endDate.getTime()) || endDate <= startDate) {
+      endDate = new Date(startDate.getTime() + 3600000);
+    }
+
+    // Set UI to loading state
+    if (el.btnFetchMetocean) {
+      el.btnFetchMetocean.disabled = true;
+      if (el.textFetchMetocean) el.textFetchMetocean.textContent = 'Memuat turun...';
+      if (el.iconFetchMetocean) {
+        el.iconFetchMetocean.style.animation = 'spin 1s linear infinite';
+      }
+    }
+
+    try {
+      const latFixed = lat.toFixed(4);
+      const lonFixed = lon.toFixed(4);
+
+      const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latFixed}&longitude=${lonFixed}&hourly=wind_speed_10m,wind_direction_10m,wind_gusts_10m&wind_speed_unit=kn&timezone=auto&past_days=7`;
+      const marineUrl = `https://marine-api.open-meteo.com/v1/marine?latitude=${latFixed}&longitude=${lonFixed}&hourly=ocean_current_velocity,ocean_current_direction,wave_height&timezone=auto&past_days=7`;
+
+      const [weatherRes, marineRes] = await Promise.all([
+        fetch(weatherUrl).then(r => r.ok ? r.json() : null).catch(() => null),
+        fetch(marineUrl).then(r => r.ok ? r.json() : null).catch(() => null)
+      ]);
+
+      if (!weatherRes && !marineRes) {
+        throw new Error('Gagal menyambung ke pelayan Open-Meteo. Sila periksa sambungan internet anda.');
+      }
+
+      // Process Weather / Wind (10m)
+      let matchingWindHours = [];
+      if (weatherRes && weatherRes.hourly && weatherRes.hourly.time) {
+        const times = weatherRes.hourly.time;
+        const speeds = weatherRes.hourly.wind_speed_10m || [];
+        const dirs = weatherRes.hourly.wind_direction_10m || [];
+
+        for (let i = 0; i < times.length; i++) {
+          const t = new Date(times[i]);
+          if (t >= new Date(startDate.getTime() - 1800000) && t <= new Date(endDate.getTime() + 1800000)) {
+            if (speeds[i] !== null && dirs[i] !== null) {
+              matchingWindHours.push({
+                time: times[i],
+                speed: speeds[i],
+                direction: dirs[i]
+              });
+            }
+          }
+        }
+
+        if (matchingWindHours.length === 0 && times.length > 0) {
+          const lastIdx = times.length - 1;
+          matchingWindHours.push({
+            time: times[lastIdx],
+            speed: speeds[lastIdx] || 10,
+            direction: dirs[lastIdx] || 0
+          });
+        }
+      }
+
+      // Process Marine / Ocean Currents
+      let matchingMarineHours = [];
+      if (marineRes && marineRes.hourly && marineRes.hourly.time) {
+        const times = marineRes.hourly.time;
+        const velocities = marineRes.hourly.ocean_current_velocity || [];
+        const directions = marineRes.hourly.ocean_current_direction || [];
+        const waves = marineRes.hourly.wave_height || [];
+        const rawUnit = marineRes.hourly_units ? marineRes.hourly_units.ocean_current_velocity : 'km/h';
+
+        for (let i = 0; i < times.length; i++) {
+          const t = new Date(times[i]);
+          if (t >= new Date(startDate.getTime() - 1800000) && t <= new Date(endDate.getTime() + 1800000)) {
+            if (velocities[i] !== null && directions[i] !== null) {
+              let velKnots = velocities[i];
+              if (rawUnit === 'km/h') velKnots = velocities[i] * 0.539957;
+              else if (rawUnit === 'm/s') velKnots = velocities[i] * 1.94384;
+
+              matchingMarineHours.push({
+                time: times[i],
+                velocity: velKnots,
+                rawVelocity: velocities[i],
+                direction: directions[i],
+                waveHeight: waves[i] || 0
+              });
+            }
+          }
+        }
+      }
+
+      // 1. ASW Vectors
+      let avgWindSpeed = 0;
+      let avgWindDir = 0;
+      let totalWindDx = 0;
+      let totalWindDy = 0;
+      let totalWindHours = 0;
+
+      if (matchingWindHours.length > 0) {
+        state.aswVectors = [];
+        const totalDurationMs = Math.max(3600000, endDate.getTime() - startDate.getTime());
+        const hourStep = totalDurationMs / (3600000 * matchingWindHours.length);
+
+        matchingWindHours.forEach((item, idx) => {
+          const b = ((item.direction % 360) + 360) % 360;
+          const s = Math.round(item.speed * 10) / 10;
+          const dur = Math.round(hourStep * 100) / 100;
+          const dist = s * dur;
+          const { dx, dy } = calculateComponents(b, dist);
+
+          totalWindDx += dx;
+          totalWindDy += dy;
+          totalWindHours += dur;
+
+          state.aswVectors.push({
+            id: Date.now() + idx + Math.random(),
+            index: idx + 1,
+            bearing: b,
+            speed: s,
+            time: dur,
+            distance: dist,
+            dx,
+            dy
+          });
+        });
+
+        const resultantDist = Math.hypot(totalWindDx, totalWindDy);
+        avgWindDir = cartesianToNauticalBearing(totalWindDx, totalWindDy);
+        avgWindSpeed = totalWindHours > 0 ? resultantDist / totalWindHours : 0;
+
+        state.aswResultant = {
+          bearing: avgWindDir,
+          avgSpeed: avgWindSpeed,
+          totalDist: resultantDist,
+          totalTime: totalWindHours,
+          count: state.aswVectors.length,
+          dx: totalWindDx,
+          dy: totalWindDy
+        };
+        state.isAswCalculated = true;
+
+        if (el.aswBearingInput) el.aswBearingInput.value = Math.round(avgWindDir).toString().padStart(3, '0');
+        if (el.aswSpeedInput) el.aswSpeedInput.value = avgWindSpeed.toFixed(1);
+        if (el.aswTimeInput) el.aswTimeInput.value = totalWindHours.toFixed(1);
+
+        updateAswUI();
+
+        // 2. Wind Current (WC) from ASW
+        calculateWcFromAsw();
+      }
+
+      // 3. Sea Current (SC) / Total Water Current
+      let avgCurrentSpeed = 0;
+      let avgCurrentDir = 0;
+      let hasMarineCurrent = false;
+
+      if (matchingMarineHours.length > 0) {
+        let totalCurrentDx = 0;
+        let totalCurrentDy = 0;
+        let count = 0;
+
+        matchingMarineHours.forEach((m) => {
+          if (m.velocity > 0.001) {
+            const { dx, dy } = calculateComponents(m.direction, m.velocity);
+            totalCurrentDx += dx;
+            totalCurrentDy += dy;
+            count++;
+          }
+        });
+
+        if (count > 0) {
+          hasMarineCurrent = true;
+          avgCurrentSpeed = Math.hypot(totalCurrentDx, totalCurrentDy) / count;
+          avgCurrentDir = cartesianToNauticalBearing(totalCurrentDx, totalCurrentDy);
+
+          state.scVectors = [{
+            id: Date.now() + Math.random(),
+            index: 1,
+            type: 'SC',
+            bearing: ((avgCurrentDir % 360) + 360) % 360,
+            speed: Math.round(avgCurrentSpeed * 100) / 100,
+            dx: totalCurrentDx / count,
+            dy: totalCurrentDy / count,
+            errorE: 0.3
+          }];
+          state.isScCalculated = true;
+
+          if (el.scBearingInput) el.scBearingInput.value = Math.round(avgCurrentDir).toString().padStart(3, '0');
+          if (el.scSpeedInput) el.scSpeedInput.value = avgCurrentSpeed.toFixed(2);
+          if (el.scTypeSelect) el.scTypeSelect.value = 'SC';
+
+          calculateScResultant();
+        }
+      }
+
+      // 4. Calculate Leeway & Final Datum
+      calculateLeeway();
+      calculateFinalDatum(true);
+      if (state.displayMode === 'map') {
+        updateLeafletMap();
+      }
+      saveAppState();
+
+      // 5. Render Modal Summary to User
+      renderMetoceanSummaryModal({
+        lat,
+        lon,
+        startDate,
+        endDate,
+        windHours: matchingWindHours,
+        avgWindDir,
+        avgWindSpeed,
+        totalWindHours,
+        marineHours: matchingMarineHours,
+        hasMarineCurrent,
+        avgCurrentDir,
+        avgCurrentSpeed
+      });
+
+    } catch (err) {
+      console.error('Error fetching metocean data:', err);
+      alert('Ralat semasa memuat turun data metocean satelit: ' + (err.message || 'Sila cuba sebentar lagi.'));
+    } finally {
+      if (el.btnFetchMetocean) {
+        el.btnFetchMetocean.disabled = false;
+        if (el.textFetchMetocean) el.textFetchMetocean.textContent = '🌐 Auto Cuaca/Arus';
+        if (el.iconFetchMetocean) {
+          el.iconFetchMetocean.style.animation = '';
+        }
+      }
+    }
+  }
+
+  // =========================================================================
   // VISUALISASI KAWASAN CARIAN & CORAK PENCARIAN (SEARCH PATTERNS) PADA PETA
   // =========================================================================
 
@@ -6883,6 +7264,45 @@
         el.mapContainer.style.cursor = '';
       }
     });
+
+    // Butang Auto Cuaca / Arus Metocean Satelit
+    if (el.btnFetchMetocean) {
+      el.btnFetchMetocean.addEventListener('click', () => {
+        fetchMarineMetoceanData();
+      });
+    }
+
+    if (el.btnFetchMetoceanHeader) {
+      el.btnFetchMetoceanHeader.addEventListener('click', () => {
+        fetchMarineMetoceanData();
+      });
+    }
+
+    if (el.btnFetchMetoceanAsw) {
+      el.btnFetchMetoceanAsw.addEventListener('click', () => {
+        fetchMarineMetoceanData();
+      });
+    }
+
+    if (el.btnFetchMetoceanTwc) {
+      el.btnFetchMetoceanTwc.addEventListener('click', () => {
+        fetchMarineMetoceanData();
+      });
+    }
+
+    if (el.btnCloseMetoceanModal) {
+      el.btnCloseMetoceanModal.addEventListener('click', () => {
+        closeMetoceanModal();
+      });
+    }
+
+    if (el.modalMetocean) {
+      el.modalMetocean.addEventListener('click', (e) => {
+        if (e.target === el.modalMetocean) {
+          closeMetoceanModal();
+        }
+      });
+    }
 
     // Event Listeners untuk Average Surface Wind (ASW)
     if (el.aswSpeedInput && el.aswTimeInput) {

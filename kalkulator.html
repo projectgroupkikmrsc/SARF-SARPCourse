@@ -64,6 +64,10 @@
           <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" fill="none" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
           <span>Jadual IAMSAR (N1-N8)</span>
         </button>
+        <button id="btn-fetch-metocean-header" class="btn" style="background: #fbbf24; color: #000000; font-weight: 800; border: 1px solid #f59e0b; box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4);" title="Muat turun data Angin & Arus Laut dari satelit (Open-Meteo & Copernicus)">
+          <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" fill="none" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+          <span>🌐 Auto Cuaca / Arus</span>
+        </button>
       </div>
     </header>
 
@@ -370,11 +374,15 @@
                     </div>
                   </div>
 
-                  <!-- Button Set di Peta di Bawah Input Lat Long -->
-                  <div style="margin-top: 0.45rem;">
-                    <button type="button" id="btn-pick-location" class="btn btn-outline btn-set-map-full" title="Klik pada peta Leaflet untuk pilih titik kejadian">
+                  <!-- Button Set di Peta & Auto Cuaca/Arus di Bawah Input Lat Long -->
+                  <div style="margin-top: 0.45rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem;">
+                    <button type="button" id="btn-pick-location" class="btn btn-outline" style="padding: 0.5rem 0.4rem; font-size: 0.74rem; justify-content: center;" title="Klik pada peta Leaflet untuk pilih titik kejadian">
                       <svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" fill="none" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="22" y1="12" x2="18" y2="12"/><line x1="6" y1="12" x2="2" y2="12"/><line x1="12" y1="6" x2="12" y2="2"/><line x1="12" y1="22" x2="12" y2="18"/></svg>
                       <span>📍 Set di Peta</span>
+                    </button>
+                    <button type="button" id="btn-fetch-metocean" class="btn" style="padding: 0.5rem 0.4rem; font-size: 0.74rem; justify-content: center; background: #fbbf24; color: #000000; font-weight: 800; border: 1px solid #f59e0b; box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4);" title="Muat turun data Angin & Arus Laut dari satelit mengikut koordinat & masa kejadian">
+                      <svg id="icon-fetch-metocean" viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" fill="none" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+                      <span id="text-fetch-metocean">🌐 Auto Cuaca/Arus</span>
                     </button>
                   </div>
                 </div>
@@ -653,7 +661,7 @@
                         <span class="calc-value" id="asw-dist-preview">0.00 NM</span>
                       </div>
 
-                      <div class="btn-grid">
+                      <div class="btn-grid" style="margin-bottom: 0.45rem;">
                         <button type="button" id="btn-add-asw" class="btn btn-primary" title="Tambah data angin">
                           <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                           <span>Tambah Angin</span>
@@ -667,6 +675,11 @@
                           <span>Reset</span>
                         </button>
                       </div>
+
+                      <button type="button" id="btn-fetch-metocean-asw" class="btn" style="width: 100%; background: #fbbf24; color: #000000; font-weight: 800; border: 1px solid #f59e0b; justify-content: center; font-size: 0.8rem; padding: 0.55rem 0.5rem; box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4);" title="Muat turun data angin dari satelit mengikut koordinat & masa kejadian">
+                        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+                        <span>🌐 Auto Muat Turun Cuaca/Angin Satelit</span>
+                      </button>
                     </form>
                   </section>
 
@@ -1240,7 +1253,7 @@
                           <span class="calc-value" id="sc-dist-preview">1.50 kts</span>
                         </div>
 
-                        <div class="btn-grid">
+                        <div class="btn-grid" style="margin-bottom: 0.45rem;">
                           <button type="button" id="btn-add-sc" class="btn btn-primary" title="Tambah vektor arus ke dalam siri">
                             <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                             <span>Tambah Arus</span>
@@ -1254,6 +1267,11 @@
                             <span>Reset</span>
                           </button>
                         </div>
+
+                        <button type="button" id="btn-fetch-metocean-twc" class="btn" style="width: 100%; background: #fbbf24; color: #000000; font-weight: 800; border: 1px solid #f59e0b; justify-content: center; font-size: 0.8rem; padding: 0.55rem 0.5rem; box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4);" title="Muat turun data arus laut dari model marin satelit Copernicus">
+                          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+                          <span>🌐 Auto Muat Turun Arus Laut dari Satelit</span>
+                        </button>
                       </form>
                     </section>
 
@@ -3099,6 +3117,24 @@
 
       <!-- Table View Content Container -->
       <div class="iamsar-modal-body" id="iamsar-modal-body">
+        <!-- Injected via JavaScript -->
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       MODAL: AUTO-FETCH DATA ANGIN & ARUS LAUT (METOCEAN)
+       ========================================================= -->
+  <div class="iamsar-modal-overlay" id="modal-metocean" style="display: none;">
+    <div class="iamsar-modal-container" style="max-width: 650px;">
+      <div class="iamsar-modal-header">
+        <h3>
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+          <span>Data Cerapan Satelit &amp; Model Marin (Open-Meteo)</span>
+        </h3>
+        <button type="button" class="drawer-close-btn" id="btn-close-metocean-modal" title="Tutup Modal">&times;</button>
+      </div>
+      <div class="iamsar-modal-body" id="metocean-modal-body" style="padding: 1.1rem 1.25rem;">
         <!-- Injected via JavaScript -->
       </div>
     </div>
