@@ -8952,47 +8952,74 @@
 
     // Butang Floating Overlays: Windy Particle Flow & Vector Overlays (Feature 5)
     if (el.btnToggleFlowWind) {
-      el.btnToggleFlowWind.addEventListener('click', () => setFlowMode('wind'));
+      el.btnToggleFlowWind.addEventListener('click', (e) => {
+        e.stopPropagation();
+        setFlowMode('wind');
+      });
     }
     if (el.btnToggleFlowCurrent) {
-      el.btnToggleFlowCurrent.addEventListener('click', () => setFlowMode('current'));
+      el.btnToggleFlowCurrent.addEventListener('click', (e) => {
+        e.stopPropagation();
+        setFlowMode('current');
+      });
     }
     if (el.btnToggleFlowGrid) {
-      el.btnToggleFlowGrid.addEventListener('click', () => toggleFlowGrid());
+      el.btnToggleFlowGrid.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleFlowGrid();
+      });
     }
 
     if (el.btnToggleWindLayer) {
-      el.btnToggleWindLayer.addEventListener('click', () => {
+      el.btnToggleWindLayer.addEventListener('click', (e) => {
+        e.stopPropagation();
         state.mapOverlays.wind = !state.mapOverlays.wind;
         syncMapOverlaysVisibility();
+        updateLeafletMap();
+        showToast(state.mapOverlays.wind ? '💨 Vektor Angin (ASW): Papar' : '💨 Vektor Angin (ASW): Sembunyi');
         saveAppState();
       });
     }
     if (el.btnToggleCurrentLayer) {
-      el.btnToggleCurrentLayer.addEventListener('click', () => {
+      el.btnToggleCurrentLayer.addEventListener('click', (e) => {
+        e.stopPropagation();
         state.mapOverlays.current = !state.mapOverlays.current;
         syncMapOverlaysVisibility();
+        updateLeafletMap();
+        showToast(state.mapOverlays.current ? '🌊 Vektor Arus (TWC): Papar' : '🌊 Vektor Arus (TWC): Sembunyi');
         saveAppState();
       });
     }
     if (el.btnToggleDriftLayer) {
-      el.btnToggleDriftLayer.addEventListener('click', () => {
+      el.btnToggleDriftLayer.addEventListener('click', (e) => {
+        e.stopPropagation();
         state.mapOverlays.driftTriangle = !state.mapOverlays.driftTriangle;
         syncMapOverlaysVisibility();
+        updateLeafletMap();
+        showToast(state.mapOverlays.driftTriangle ? '📐 Segitiga Hanyutan: Papar' : '📐 Segitiga Hanyutan: Sembunyi');
         saveAppState();
       });
     }
     if (el.btnTogglePatternLayer) {
-      el.btnTogglePatternLayer.addEventListener('click', () => {
+      el.btnTogglePatternLayer.addEventListener('click', (e) => {
+        e.stopPropagation();
         state.mapOverlays.searchTracks = !state.mapOverlays.searchTracks;
-        syncMapOverlaysVisibility();
+        if (state.mapOverlays.searchTracks) {
+          plotSearchPatternsOnMap();
+        } else {
+          syncMapOverlaysVisibility();
+        }
+        showToast(state.mapOverlays.searchTracks ? '🧭 Laluan Carian: Papar' : '🧭 Laluan Carian: Sembunyi');
         saveAppState();
       });
     }
     if (el.btnToggleRadiusLayer) {
-      el.btnToggleRadiusLayer.addEventListener('click', () => {
+      el.btnToggleRadiusLayer.addEventListener('click', (e) => {
+        e.stopPropagation();
         state.mapOverlays.datumRadius = !state.mapOverlays.datumRadius;
         syncMapOverlaysVisibility();
+        updateLeafletMap();
+        showToast(state.mapOverlays.datumRadius ? '🎯 Radius Carian (R): Papar' : '🎯 Radius Carian (R): Sembunyi');
         saveAppState();
       });
     }
@@ -9092,16 +9119,16 @@
   }
 
   function getWindyFlowColor(speed, mode, lifeRatio) {
-    const alpha = Math.max(0, Math.min(1, Math.sin(lifeRatio * Math.PI))) * 0.85;
+    const alpha = 0.35 + Math.max(0, Math.min(1, Math.sin(lifeRatio * Math.PI))) * 0.65;
     if (mode === 'wind') {
-      if (speed < 8) return `rgba(56, 189, 248, ${alpha})`; // Cyan
-      if (speed < 16) return `rgba(52, 211, 153, ${alpha})`; // Emerald
-      if (speed < 24) return `rgba(251, 191, 36, ${alpha})`; // Amber
-      return `rgba(244, 63, 94, ${alpha})`; // Rose / Red
+      if (speed < 8) return `rgba(14, 165, 233, ${alpha})`; // Bright Sky Cyan
+      if (speed < 16) return `rgba(16, 185, 129, ${alpha})`; // Vivid Emerald Green
+      if (speed < 24) return `rgba(245, 158, 11, ${alpha})`; // Vivid Amber Yellow
+      return `rgba(239, 68, 68, ${alpha})`; // Vivid Crimson Red
     } else {
-      if (speed < 0.6) return `rgba(56, 189, 248, ${alpha})`; // Sky
-      if (speed < 1.4) return `rgba(99, 102, 241, ${alpha})`; // Indigo
-      return `rgba(236, 72, 153, ${alpha})`; // Vivid Magenta
+      if (speed < 0.6) return `rgba(6, 182, 212, ${alpha})`; // Cyan Aqua
+      if (speed < 1.4) return `rgba(99, 102, 241, ${alpha})`; // Indigo Blue
+      return `rgba(217, 70, 239, ${alpha})`; // Vivid Fuchsia
     }
   }
 
@@ -9244,7 +9271,7 @@
         ctx.moveTo(p.oldX, p.oldY);
         ctx.lineTo(p.x, p.y);
         ctx.strokeStyle = color;
-        ctx.lineWidth = mode === 'current' ? 2.0 : 1.4;
+        ctx.lineWidth = mode === 'current' ? 2.5 : 2.0;
         ctx.lineCap = 'round';
         ctx.stroke();
       }
@@ -9292,10 +9319,12 @@
       // Toggle off jika ditekan butang yang sama
       stopWindyFlowEngine();
       state.flowField.mode = 'none';
+      showToast('💨 Animasi aliran zarah dimatikan');
     } else {
       state.flowField.mode = mode;
       state.flowField.active = true;
       startWindyFlowEngine();
+      showToast(mode === 'wind' ? '💨 Animasi Aliran Angin diaktifkan' : '🌊 Animasi Aliran Arus Laut diaktifkan');
     }
     updateFlowButtonsUI();
     saveAppState();
@@ -9304,6 +9333,7 @@
   function toggleFlowGrid() {
     state.flowField.showGridArrows = !state.flowField.showGridArrows;
     updateFlowButtonsUI();
+    showToast(state.flowField.showGridArrows ? '🏹 Grid Anak Panah diaktifkan' : '🏹 Grid Anak Panah dimatikan');
     saveAppState();
   }
 
