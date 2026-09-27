@@ -847,8 +847,8 @@
 
     // State untuk Lapisan Peta Leaflet (Feature 5: Floating Map Overlays)
     mapOverlays: {
-      wind: true,
-      current: true,
+      wc: true,
+      sc: true,
       driftTriangle: true,
       searchTracks: true,
       datumRadius: true
@@ -908,8 +908,8 @@
   let leafletMap = null;
   let vectorLayerGroup = null;
   let planningLayerGroup = null;
-  let windLayerGroup = null;
-  let currentLayerGroup = null;
+  let wcLayerGroup = null;
+  let scLayerGroup = null;
   let driftLayerGroup = null;
   let radiusLayerGroup = null;
   let waypointMarkerLayerGroup = null;
@@ -1285,8 +1285,8 @@
     btnToggleFlowWind: document.getElementById('btn-toggle-flow-wind'),
     btnToggleFlowCurrent: document.getElementById('btn-toggle-flow-current'),
     btnToggleFlowGrid: document.getElementById('btn-toggle-flow-grid'),
-    btnToggleWindLayer: document.getElementById('btn-toggle-wind-layer'),
-    btnToggleCurrentLayer: document.getElementById('btn-toggle-current-layer'),
+    btnToggleWcLayer: document.getElementById('btn-toggle-wc-layer'),
+    btnToggleScLayer: document.getElementById('btn-toggle-sc-layer'),
     btnToggleDriftLayer: document.getElementById('btn-toggle-drift-layer'),
     btnTogglePatternLayer: document.getElementById('btn-toggle-pattern-layer'),
     btnToggleRadiusLayer: document.getElementById('btn-toggle-radius-layer'),
@@ -3614,8 +3614,8 @@
       }).addTo(leafletMap);
 
       vectorLayerGroup = L.layerGroup().addTo(leafletMap);
-      windLayerGroup = L.layerGroup().addTo(leafletMap);
-      currentLayerGroup = L.layerGroup().addTo(leafletMap);
+      wcLayerGroup = L.layerGroup().addTo(leafletMap);
+      scLayerGroup = L.layerGroup().addTo(leafletMap);
       driftLayerGroup = L.layerGroup().addTo(leafletMap);
       radiusLayerGroup = L.layerGroup().addTo(leafletMap);
       planningLayerGroup = L.layerGroup().addTo(leafletMap);
@@ -3672,35 +3672,35 @@
     if (!leafletMap) return;
 
     const overlays = state.mapOverlays || {
-      wind: true,
-      current: true,
+      wc: true,
+      sc: true,
       driftTriangle: true,
       searchTracks: true,
       datumRadius: true
     };
 
-    // 1. Wind Layer
-    if (windLayerGroup) {
-      if (overlays.wind) {
-        if (!leafletMap.hasLayer(windLayerGroup)) leafletMap.addLayer(windLayerGroup);
+    // 1. Wind Current (WC) Layer
+    if (wcLayerGroup) {
+      if (overlays.wc) {
+        if (!leafletMap.hasLayer(wcLayerGroup)) leafletMap.addLayer(wcLayerGroup);
       } else {
-        if (leafletMap.hasLayer(windLayerGroup)) leafletMap.removeLayer(windLayerGroup);
+        if (leafletMap.hasLayer(wcLayerGroup)) leafletMap.removeLayer(wcLayerGroup);
       }
     }
-    if (el.btnToggleWindLayer) {
-      el.btnToggleWindLayer.classList.toggle('active', !!overlays.wind);
+    if (el.btnToggleWcLayer) {
+      el.btnToggleWcLayer.classList.toggle('active', !!overlays.wc);
     }
 
-    // 2. Current Layer
-    if (currentLayerGroup) {
-      if (overlays.current) {
-        if (!leafletMap.hasLayer(currentLayerGroup)) leafletMap.addLayer(currentLayerGroup);
+    // 2. Sea Current (SC / TWC) Layer
+    if (scLayerGroup) {
+      if (overlays.sc) {
+        if (!leafletMap.hasLayer(scLayerGroup)) leafletMap.addLayer(scLayerGroup);
       } else {
-        if (leafletMap.hasLayer(currentLayerGroup)) leafletMap.removeLayer(currentLayerGroup);
+        if (leafletMap.hasLayer(scLayerGroup)) leafletMap.removeLayer(scLayerGroup);
       }
     }
-    if (el.btnToggleCurrentLayer) {
-      el.btnToggleCurrentLayer.classList.toggle('active', !!overlays.current);
+    if (el.btnToggleScLayer) {
+      el.btnToggleScLayer.classList.toggle('active', !!overlays.sc);
     }
 
     // 3. Drift Triangle Layer
@@ -3755,8 +3755,8 @@
     }
 
     vectorLayerGroup.clearLayers();
-    if (windLayerGroup) windLayerGroup.clearLayers();
-    if (currentLayerGroup) currentLayerGroup.clearLayers();
+    if (wcLayerGroup) wcLayerGroup.clearLayers();
+    if (scLayerGroup) scLayerGroup.clearLayers();
     if (driftLayerGroup) driftLayerGroup.clearLayers();
     if (radiusLayerGroup) radiusLayerGroup.clearLayers();
 
@@ -3790,44 +3790,7 @@
       </div>
     `);
 
-    // 2. Vektor Angin (ASW) Overlay (Feature 5)
-    let aswSpeed = state.aswResultant?.avgSpeed || state.aswResultant?.speed || 0;
-    let aswBearing = state.aswResultant?.bearing || 0;
-    if (!aswSpeed && state.aswVectors && state.aswVectors.length > 0) {
-      aswSpeed = state.aswVectors[0].speed;
-      aswBearing = state.aswVectors[0].bearing;
-    }
-    if (!aswSpeed && el.aswSpeedInput) {
-      aswSpeed = parseFloat(el.aswSpeedInput.value) || 0;
-      aswBearing = parseFloat(el.aswBearingInput?.value) || 0;
-    }
-
-    if (aswSpeed > 0 && windLayerGroup) {
-      const windTowards = (aswBearing + 180) % 360;
-      const arrowLenNM = Math.min(8.0, Math.max(2.0, aswSpeed * 0.25));
-      const windDest = calculateDestinationPoint(originLat, originLon, windTowards, arrowLenNM);
-
-      const windLine = L.polyline([[originLat, originLon], [windDest.lat, windDest.lon]], {
-        color: '#38bdf8',
-        weight: 3.5,
-        opacity: 0.95
-      }).addTo(windLayerGroup);
-
-      windLine.bindTooltip(`💨 ASW (Angin): ${formatNauticalBearing(aswBearing)} / ${aswSpeed.toFixed(1)} kts (Bertiup ke ${formatNauticalBearing(windTowards)})`, {
-        className: 'nautical-map-tooltip nautical-wind-tooltip'
-      });
-
-      const windHead = L.circleMarker([windDest.lat, windDest.lon], {
-        radius: 4.5,
-        fillColor: '#38bdf8',
-        color: '#ffffff',
-        weight: 1.5,
-        fillOpacity: 1
-      }).addTo(windLayerGroup);
-      windHead.bindTooltip(`💨 Hujung Vektor Angin (${aswSpeed.toFixed(1)} kts)`, { className: 'nautical-map-tooltip' });
-    }
-
-    // 3. Plotting IAMSAR Final Datum jika telah dikira
+    // 2. Plotting IAMSAR Final Datum jika telah dikira
     if (state.finalDatum) {
       const fd = state.finalDatum;
       const dur = fd.durationHours || 1.0;
@@ -3840,8 +3803,8 @@
       let twcLegCount = 0;
 
       if (state.twcMode === 'computed') {
-        // A. Vektor 1: Wind Current (WC)
-        if (state.wcVector && state.wcVector.speed > 0) {
+        // A. Vektor 1: Wind Current (WC) -> wcLayerGroup
+        if (state.wcVector && state.wcVector.speed > 0 && wcLayerGroup) {
           const wc = state.wcVector;
           const wcLegDist = wc.speed * dur;
           const nextPt = calculateDestinationPoint(currPt.lat, currPt.lon, wc.bearing, wcLegDist);
@@ -3852,10 +3815,8 @@
             color: '#0284c7',
             weight: 3.5,
             opacity: 0.95
-          }).addTo(currentLayerGroup);
+          }).addTo(wcLayerGroup);
 
-          const midLat = (currPt.lat + nextPt.lat) / 2;
-          const midLon = (currPt.lon + nextPt.lon) / 2;
           const wcLabel = `1. WC: ${formatNauticalBearing(wc.bearing)} | ${wc.speed.toFixed(2)} kts (${wcLegDist.toFixed(2)} NM)`;
 
           wcLine.bindTooltip(wcLabel, {
@@ -3881,14 +3842,14 @@
             weight: 1.5,
             opacity: 1,
             fillOpacity: 0.9
-          }).addTo(currentLayerGroup);
+          }).addTo(wcLayerGroup);
           wpDot.bindTooltip('WP1 (Hujung WC)', { className: 'nautical-map-tooltip' });
 
           currPt = nextPt;
         }
 
-        // B. Vektor 2..N: Vektor Arus Tambahan (SC / TC / RC / OC)
-        if (Array.isArray(state.scVectors) && state.scVectors.length > 0) {
+        // B. Vektor 2..N: Vektor Arus Tambahan (SC / TC / RC / OC) -> scLayerGroup
+        if (Array.isArray(state.scVectors) && state.scVectors.length > 0 && scLayerGroup) {
           const scColors = ['#06b6d4', '#14b8a6', '#3b82f6', '#6366f1', '#8b5cf6'];
 
           state.scVectors.forEach((v, idx) => {
@@ -3903,7 +3864,7 @@
               color: legColor,
               weight: 3.5,
               opacity: 0.95
-            }).addTo(currentLayerGroup);
+            }).addTo(scLayerGroup);
 
             const vecLabel = `${legNum}. ${v.type || 'SC'}: ${formatNauticalBearing(v.bearing)} | ${v.speed.toFixed(2)} kts (${scLegDist.toFixed(2)} NM)`;
             vecLine.bindTooltip(vecLabel, {
@@ -3929,51 +3890,53 @@
               weight: 1.5,
               opacity: 1,
               fillOpacity: 0.9
-            }).addTo(currentLayerGroup);
+            }).addTo(scLayerGroup);
             wpDot.bindTooltip(`WP${legNum} (Hujung ${v.type || 'SC'})`, { className: 'nautical-map-tooltip' });
 
             currPt = nextPt;
           });
         }
 
-        // Garisan Paduan TWC (Dashed line dari Origin ke hujung TWC jika lebih 1 vektor)
-        if (twcLegCount > 1 && (fd.twcDist || fd.scDist) > 0) {
+        // Garisan Paduan TWC -> scLayerGroup
+        if (twcLegCount > 1 && (fd.twcDist || fd.scDist) > 0 && scLayerGroup) {
           const twcResLine = L.polyline([[originLat, originLon], [currPt.lat, currPt.lon]], {
             color: '#38bdf8',
             weight: 2,
             opacity: 0.75,
             dashArray: '5, 5'
-          }).addTo(currentLayerGroup);
+          }).addTo(scLayerGroup);
 
           twcResLine.bindTooltip(`🎯 Paduan TWC: ${formatNauticalBearing(fd.scBearing)} | ${(fd.twcDist || fd.scDist).toFixed(2)} NM`, {
             className: 'nautical-map-tooltip nautical-current-tooltip'
           });
         }
       } else {
-        // Observed TWC Single Vector
+        // Observed TWC Single Vector -> scLayerGroup
         const obs = state.twcObserved || { bearing: 180, distance: 1.0, speed: 1.0 };
         const nextPt = calculateDestinationPoint(originLat, originLon, obs.bearing, obs.distance);
         boundsLatLngs.push([nextPt.lat, nextPt.lon]);
 
-        const obsLine = L.polyline([[originLat, originLon], [nextPt.lat, nextPt.lon]], {
-          color: '#0284c7',
-          weight: 3.5,
-          opacity: 0.95
-        }).addTo(currentLayerGroup);
+        if (scLayerGroup) {
+          const obsLine = L.polyline([[originLat, originLon], [nextPt.lat, nextPt.lon]], {
+            color: '#0284c7',
+            weight: 3.5,
+            opacity: 0.95
+          }).addTo(scLayerGroup);
 
-        obsLine.bindTooltip(`🌊 Observed TWC (${obs.source || 'Cerapan'}): ${formatNauticalBearing(obs.bearing)} | ${obs.distance.toFixed(2)} NM`, {
-          className: 'nautical-map-tooltip nautical-current-tooltip'
-        });
+          obsLine.bindTooltip(`🌊 Observed TWC (${obs.source || 'Cerapan'}): ${formatNauticalBearing(obs.bearing)} | ${obs.distance.toFixed(2)} NM`, {
+            className: 'nautical-map-tooltip nautical-current-tooltip'
+          });
 
-        obsLine.bindPopup(`
-          <div style="font-family: 'Outfit', sans-serif;">
-            <h4 style="color:#0284c7; margin-bottom:4px; font-weight:700;">OBSERVED TOTAL WATER CURRENT (TWC)</h4>
-            <p style="margin:2px 0;"><strong>Sumber:</strong> ${obs.source || 'Cerapan Arus'}</p>
-            <p style="margin:2px 0;"><strong>Arah Set:</strong> ${formatNauticalBearing(obs.bearing)}</p>
-            <p style="margin:2px 0;"><strong>Kelajuan:</strong> ${obs.speed.toFixed(2)} kts</p>
-            <p style="margin:2px 0;"><strong>Jarak:</strong> ${obs.distance.toFixed(2)} NM</p>
-          </div>
-        `);
+          obsLine.bindPopup(`
+            <div style="font-family: 'Outfit', sans-serif;">
+              <h4 style="color:#0284c7; margin-bottom:4px; font-weight:700;">OBSERVED TOTAL WATER CURRENT (TWC)</h4>
+              <p style="margin:2px 0;"><strong>Sumber:</strong> ${obs.source || 'Cerapan Arus'}</p>
+              <p style="margin:2px 0;"><strong>Arah Set:</strong> ${formatNauticalBearing(obs.bearing)}</p>
+              <p style="margin:2px 0;"><strong>Kelajuan:</strong> ${obs.speed.toFixed(2)} kts</p>
+              <p style="margin:2px 0;"><strong>Jarak:</strong> ${obs.distance.toFixed(2)} NM</p>
+            </div>
+          `);
+        }
 
         currPt = nextPt;
       }
@@ -3981,8 +3944,8 @@
       const scEndPt = currPt;
       boundsLatLngs.push([scEndPt.lat, scEndPt.lon]);
 
-      // Marker Titik Hujung TWC (Pertemuan Arus & Mula Leeway)
-      if (twcLegCount > 0 || state.twcMode === 'observed') {
+      // Marker Titik Hujung TWC (Pertemuan Arus & Mula Leeway) -> scLayerGroup
+      if ((twcLegCount > 0 || state.twcMode === 'observed') && scLayerGroup) {
         const twcEndMarker = L.circleMarker([scEndPt.lat, scEndPt.lon], {
           radius: 6.5,
           fillColor: '#0f172a',
@@ -3990,7 +3953,7 @@
           weight: 2.5,
           opacity: 1,
           fillOpacity: 1
-        }).addTo(currentLayerGroup);
+        }).addTo(scLayerGroup);
 
         twcEndMarker.bindTooltip('📍 Titik Hujung TWC (Mula Leeway)', {
           direction: 'top',
@@ -6947,7 +6910,13 @@
       if (!data || typeof data !== 'object') return false;
 
       if (data.mapOverlays) {
-        state.mapOverlays = Object.assign(state.mapOverlays, data.mapOverlays);
+        state.mapOverlays = Object.assign(state.mapOverlays, {
+          wc: data.mapOverlays.wc !== undefined ? data.mapOverlays.wc : (data.mapOverlays.wind !== undefined ? data.mapOverlays.wind : true),
+          sc: data.mapOverlays.sc !== undefined ? data.mapOverlays.sc : (data.mapOverlays.current !== undefined ? data.mapOverlays.current : true),
+          driftTriangle: data.mapOverlays.driftTriangle !== undefined ? data.mapOverlays.driftTriangle : true,
+          searchTracks: data.mapOverlays.searchTracks !== undefined ? data.mapOverlays.searchTracks : true,
+          datumRadius: data.mapOverlays.datumRadius !== undefined ? data.mapOverlays.datumRadius : true
+        });
       }
       if (data.flowField) {
         state.flowField.active = data.flowField.active !== false;
@@ -8961,21 +8930,21 @@
       });
     }
 
-    if (el.btnToggleWindLayer) {
-      el.btnToggleWindLayer.addEventListener('click', (e) => {
+    if (el.btnToggleWcLayer) {
+      el.btnToggleWcLayer.addEventListener('click', (e) => {
         e.stopPropagation();
-        state.mapOverlays.wind = !state.mapOverlays.wind;
+        state.mapOverlays.wc = !state.mapOverlays.wc;
         syncMapOverlaysVisibility();
-        showToast(state.mapOverlays.wind ? '💨 Vektor Angin (ASW): Papar' : '💨 Vektor Angin (ASW): Sembunyi');
+        showToast(state.mapOverlays.wc ? '💨 Vektor Wind Current (WC): Papar' : '💨 Vektor Wind Current (WC): Sembunyi');
         saveAppState();
       });
     }
-    if (el.btnToggleCurrentLayer) {
-      el.btnToggleCurrentLayer.addEventListener('click', (e) => {
+    if (el.btnToggleScLayer) {
+      el.btnToggleScLayer.addEventListener('click', (e) => {
         e.stopPropagation();
-        state.mapOverlays.current = !state.mapOverlays.current;
+        state.mapOverlays.sc = !state.mapOverlays.sc;
         syncMapOverlaysVisibility();
-        showToast(state.mapOverlays.current ? '🌊 Vektor Arus (TWC): Papar' : '🌊 Vektor Arus (TWC): Sembunyi');
+        showToast(state.mapOverlays.sc ? '🌊 Vektor Sea Current (SC): Papar' : '🌊 Vektor Sea Current (SC): Sembunyi');
         saveAppState();
       });
     }
