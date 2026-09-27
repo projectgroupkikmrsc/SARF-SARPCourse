@@ -4040,10 +4040,10 @@
       switchDisplayMode('map');
     } else if (tabName === 'planning') {
       closeDrawer();
+      closePlanningDrawer();
       if (el.vectorViewToggle) el.vectorViewToggle.style.display = 'none';
       syncPlanningFromTab2(false);
       calculatePlanning();
-      openPlanningDrawer(state.planning && state.planning.activeDrawer ? state.planning.activeDrawer : 'zta');
       switchDisplayMode('map');
     }
   }
