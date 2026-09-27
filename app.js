@@ -845,6 +845,34 @@
       touchStartDist: 0
     },
 
+    // State untuk Lapisan Peta Leaflet (Feature 5: Floating Map Overlays)
+    mapOverlays: {
+      wind: true,
+      current: true,
+      driftTriangle: true,
+      searchTracks: true,
+      datumRadius: true
+    },
+
+    // State untuk Penjana Waypoint (Feature 4: Turn-by-Turn Waypoints Generator)
+    waypointGen: {
+      patternType: 'SS',
+      sourceFacility: 'custom',
+      originTarget: 'center',
+      startLat: DEFAULT_ORIGIN_GEO.lat,
+      startLon: DEFAULT_ORIGIN_GEO.lon,
+      trackSpacing: 1.0,
+      assetSpeed: 10.0,
+      initialHeading: 0,
+      turnDirection: 'right',
+      legCount: 8,
+      sectorRadius: 3.0,
+      waypoints: [],
+      totalDistance: 0.0,
+      totalTimeMinutes: 0.0,
+      totalArea: 0.0
+    },
+
     // State untuk Simulasi Hanyutan Monte Carlo
     monteCarlo: {
       isActive: false,
@@ -863,6 +891,11 @@
   let leafletMap = null;
   let vectorLayerGroup = null;
   let planningLayerGroup = null;
+  let windLayerGroup = null;
+  let currentLayerGroup = null;
+  let driftLayerGroup = null;
+  let radiusLayerGroup = null;
+  let waypointMarkerLayerGroup = null;
 
   // --- Rujukan Elemen DOM ---
   const el = {
@@ -1198,6 +1231,44 @@
     btnPlotAllocMap: document.getElementById('btn-plot-alloc-map'),
     btnResetAlloc: document.getElementById('btn-reset-alloc'),
     btnPlotSearchPattern: document.getElementById('btn-plot-search-pattern'),
+
+    // Drawer 3: Penjana Waypoint (SS/VS/PS/CS) & Briefing Elements
+    wpSourceFacility: document.getElementById('wp-source-facility'),
+    wpPatternType: document.getElementById('wp-pattern-type'),
+    wpOriginTarget: document.getElementById('wp-origin-target'),
+    wpCustomCoordsRow: document.getElementById('wp-custom-coords-row'),
+    wpStartLat: document.getElementById('wp-start-lat'),
+    wpStartLon: document.getElementById('wp-start-lon'),
+    wpTrackSpacing: document.getElementById('wp-track-spacing'),
+    wpAssetSpeed: document.getElementById('wp-asset-speed'),
+    wpInitialHeading: document.getElementById('wp-initial-heading'),
+    wpTurnDirWrap: document.getElementById('wp-turn-dir-wrap'),
+    wpTurnDirection: document.getElementById('wp-turn-direction'),
+    wpLegCountWrap: document.getElementById('wp-leg-count-wrap'),
+    wpLegCountLabel: document.getElementById('wp-leg-count-label'),
+    wpLegCount: document.getElementById('wp-leg-count'),
+    wpRadiusWrap: document.getElementById('wp-radius-wrap'),
+    wpSectorRadius: document.getElementById('wp-sector-radius'),
+    btnGenerateWaypoints: document.getElementById('btn-generate-waypoints'),
+    btnPlotWaypointsMap: document.getElementById('btn-plot-waypoints-map'),
+    wpStatTotalPts: document.getElementById('wp-stat-total-pts'),
+    wpStatTotalDist: document.getElementById('wp-stat-total-dist'),
+    wpStatTotalTime: document.getElementById('wp-stat-total-time'),
+    wpStatTotalArea: document.getElementById('wp-stat-total-area'),
+    tableWaypoints: document.getElementById('table-waypoints'),
+    tbodyWaypoints: document.getElementById('tbody-waypoints'),
+    btnCopyWpBriefing: document.getElementById('btn-copy-wp-briefing'),
+    btnExportWpGpx: document.getElementById('btn-export-wp-gpx'),
+    btnExportWpKml: document.getElementById('btn-export-wp-kml'),
+    summaryPlanWaypointVal: document.getElementById('summary-plan-waypoint-val'),
+
+    // Floating Map Overlays Toolbar (Feature 5)
+    mapOverlayControls: document.getElementById('map-overlay-controls'),
+    btnToggleWindLayer: document.getElementById('btn-toggle-wind-layer'),
+    btnToggleCurrentLayer: document.getElementById('btn-toggle-current-layer'),
+    btnToggleDriftLayer: document.getElementById('btn-toggle-drift-layer'),
+    btnTogglePatternLayer: document.getElementById('btn-toggle-pattern-layer'),
+    btnToggleRadiusLayer: document.getElementById('btn-toggle-radius-layer'),
 
     // IAMSAR Tables (N-1 hingga N-8) Elements
     btnOpenIamsarTables: document.getElementById('btn-open-iamsar-tables'),
@@ -3491,6 +3562,7 @@
   }
 
   // =========================================================================
+  // =========================================================================
   // INTEGRASI LEAFLET & OPEN SEAMAP (LAPISAN KEKAL TANPA KOTAK TICK)
   // =========================================================================
 
@@ -3521,7 +3593,12 @@
       }).addTo(leafletMap);
 
       vectorLayerGroup = L.layerGroup().addTo(leafletMap);
+      windLayerGroup = L.layerGroup().addTo(leafletMap);
+      currentLayerGroup = L.layerGroup().addTo(leafletMap);
+      driftLayerGroup = L.layerGroup().addTo(leafletMap);
+      radiusLayerGroup = L.layerGroup().addTo(leafletMap);
       planningLayerGroup = L.layerGroup().addTo(leafletMap);
+      waypointMarkerLayerGroup = L.layerGroup().addTo(leafletMap);
 
       // Acara Klik pada Peta (untuk pilihan lokasi "Klik Peta Set Origin")
       leafletMap.on('click', (e) => {
@@ -3561,10 +3638,93 @@
     }
   }
 
+  function syncMapOverlaysVisibility() {
+    if (!leafletMap) return;
+
+    const overlays = state.mapOverlays || {
+      wind: true,
+      current: true,
+      driftTriangle: true,
+      searchTracks: true,
+      datumRadius: true
+    };
+
+    // 1. Wind Layer
+    if (windLayerGroup) {
+      if (overlays.wind) {
+        if (!leafletMap.hasLayer(windLayerGroup)) leafletMap.addLayer(windLayerGroup);
+      } else {
+        if (leafletMap.hasLayer(windLayerGroup)) leafletMap.removeLayer(windLayerGroup);
+      }
+    }
+    if (el.btnToggleWindLayer) {
+      el.btnToggleWindLayer.classList.toggle('active', !!overlays.wind);
+    }
+
+    // 2. Current Layer
+    if (currentLayerGroup) {
+      if (overlays.current) {
+        if (!leafletMap.hasLayer(currentLayerGroup)) leafletMap.addLayer(currentLayerGroup);
+      } else {
+        if (leafletMap.hasLayer(currentLayerGroup)) leafletMap.removeLayer(currentLayerGroup);
+      }
+    }
+    if (el.btnToggleCurrentLayer) {
+      el.btnToggleCurrentLayer.classList.toggle('active', !!overlays.current);
+    }
+
+    // 3. Drift Triangle Layer
+    if (driftLayerGroup) {
+      if (overlays.driftTriangle) {
+        if (!leafletMap.hasLayer(driftLayerGroup)) leafletMap.addLayer(driftLayerGroup);
+      } else {
+        if (leafletMap.hasLayer(driftLayerGroup)) leafletMap.removeLayer(driftLayerGroup);
+      }
+    }
+    if (el.btnToggleDriftLayer) {
+      el.btnToggleDriftLayer.classList.toggle('active', !!overlays.driftTriangle);
+    }
+
+    // 4. Search Tracks Layer
+    if (planningLayerGroup) {
+      if (overlays.searchTracks) {
+        if (!leafletMap.hasLayer(planningLayerGroup)) leafletMap.addLayer(planningLayerGroup);
+      } else {
+        if (leafletMap.hasLayer(planningLayerGroup)) leafletMap.removeLayer(planningLayerGroup);
+      }
+    }
+    if (waypointMarkerLayerGroup) {
+      if (overlays.searchTracks) {
+        if (!leafletMap.hasLayer(waypointMarkerLayerGroup)) leafletMap.addLayer(waypointMarkerLayerGroup);
+      } else {
+        if (leafletMap.hasLayer(waypointMarkerLayerGroup)) leafletMap.removeLayer(waypointMarkerLayerGroup);
+      }
+    }
+    if (el.btnTogglePatternLayer) {
+      el.btnTogglePatternLayer.classList.toggle('active', !!overlays.searchTracks);
+    }
+
+    // 5. Radius Layer
+    if (radiusLayerGroup) {
+      if (overlays.datumRadius) {
+        if (!leafletMap.hasLayer(radiusLayerGroup)) leafletMap.addLayer(radiusLayerGroup);
+      } else {
+        if (leafletMap.hasLayer(radiusLayerGroup)) leafletMap.removeLayer(radiusLayerGroup);
+      }
+    }
+    if (el.btnToggleRadiusLayer) {
+      el.btnToggleRadiusLayer.classList.toggle('active', !!overlays.datumRadius);
+    }
+  }
+
   function updateLeafletMap() {
     if (!leafletMap || !vectorLayerGroup) return;
 
     vectorLayerGroup.clearLayers();
+    if (windLayerGroup) windLayerGroup.clearLayers();
+    if (currentLayerGroup) currentLayerGroup.clearLayers();
+    if (driftLayerGroup) driftLayerGroup.clearLayers();
+    if (radiusLayerGroup) radiusLayerGroup.clearLayers();
 
     const originLat = state.originGeo.lat;
     const originLon = state.originGeo.lon;
@@ -3596,7 +3756,43 @@
       </div>
     `);
 
-    // 2. Plotting IAMSAR Final Datum jika telah dikira
+    // 2. Vektor Angin (ASW) Overlay (Feature 5)
+    let aswSpeed = 0;
+    let aswBearing = 0;
+    if (state.aswResultant && state.aswResultant.speed > 0) {
+      aswSpeed = state.aswResultant.speed;
+      aswBearing = state.aswResultant.bearing;
+    } else if (state.aswVectors && state.aswVectors.length > 0) {
+      aswSpeed = state.aswVectors[0].speed;
+      aswBearing = state.aswVectors[0].bearing;
+    }
+
+    if (aswSpeed > 0 && windLayerGroup) {
+      const windTowards = (aswBearing + 180) % 360;
+      const arrowLenNM = Math.min(8.0, Math.max(2.0, aswSpeed * 0.25));
+      const windDest = calculateDestinationPoint(originLat, originLon, windTowards, arrowLenNM);
+
+      const windLine = L.polyline([[originLat, originLon], [windDest.lat, windDest.lon]], {
+        color: '#38bdf8',
+        weight: 3.5,
+        opacity: 0.95
+      }).addTo(windLayerGroup);
+
+      windLine.bindTooltip(`💨 ASW (Angin): ${formatNauticalBearing(aswBearing)} / ${aswSpeed.toFixed(1)} kts (Bertiup ke ${formatNauticalBearing(windTowards)})`, {
+        className: 'nautical-map-tooltip nautical-wind-tooltip'
+      });
+
+      const windHead = L.circleMarker([windDest.lat, windDest.lon], {
+        radius: 4.5,
+        fillColor: '#38bdf8',
+        color: '#ffffff',
+        weight: 1.5,
+        fillOpacity: 1
+      }).addTo(windLayerGroup);
+      windHead.bindTooltip(`💨 Hujung Vektor Angin (${aswSpeed.toFixed(1)} kts)`, { className: 'nautical-map-tooltip' });
+    }
+
+    // 3. Plotting IAMSAR Final Datum jika telah dikira
     if (state.finalDatum) {
       const fd = state.finalDatum;
       const dur = fd.durationHours || 1.0;
@@ -3621,7 +3817,7 @@
             color: '#0284c7',
             weight: 3.5,
             opacity: 0.95
-          }).addTo(vectorLayerGroup);
+          }).addTo(currentLayerGroup || vectorLayerGroup);
 
           const midLat = (currPt.lat + nextPt.lat) / 2;
           const midLon = (currPt.lon + nextPt.lon) / 2;
@@ -3630,7 +3826,7 @@
           wcLine.bindTooltip(wcLabel, {
             permanent: false,
             direction: 'center',
-            className: 'nautical-map-tooltip'
+            className: 'nautical-map-tooltip nautical-current-tooltip'
           });
 
           wcLine.bindPopup(`
@@ -3650,7 +3846,7 @@
             weight: 1.5,
             opacity: 1,
             fillOpacity: 0.9
-          }).addTo(vectorLayerGroup);
+          }).addTo(currentLayerGroup || vectorLayerGroup);
           wpDot.bindTooltip('WP1 (Hujung WC)', { className: 'nautical-map-tooltip' });
 
           currPt = nextPt;
@@ -3672,13 +3868,13 @@
               color: legColor,
               weight: 3.5,
               opacity: 0.95
-            }).addTo(vectorLayerGroup);
+            }).addTo(currentLayerGroup || vectorLayerGroup);
 
             const vecLabel = `${legNum}. ${v.type || 'SC'}: ${formatNauticalBearing(v.bearing)} | ${v.speed.toFixed(2)} kts (${scLegDist.toFixed(2)} NM)`;
             vecLine.bindTooltip(vecLabel, {
               permanent: false,
               direction: 'center',
-              className: 'nautical-map-tooltip'
+              className: 'nautical-map-tooltip nautical-current-tooltip'
             });
 
             vecLine.bindPopup(`
@@ -3698,7 +3894,7 @@
               weight: 1.5,
               opacity: 1,
               fillOpacity: 0.9
-            }).addTo(vectorLayerGroup);
+            }).addTo(currentLayerGroup || vectorLayerGroup);
             wpDot.bindTooltip(`WP${legNum} (Hujung ${v.type || 'SC'})`, { className: 'nautical-map-tooltip' });
 
             currPt = nextPt;
@@ -3712,10 +3908,10 @@
             weight: 2,
             opacity: 0.75,
             dashArray: '5, 5'
-          }).addTo(vectorLayerGroup);
+          }).addTo(currentLayerGroup || vectorLayerGroup);
 
           twcResLine.bindTooltip(`🎯 Paduan TWC: ${formatNauticalBearing(fd.scBearing)} | ${(fd.twcDist || fd.scDist).toFixed(2)} NM`, {
-            className: 'nautical-map-tooltip'
+            className: 'nautical-map-tooltip nautical-current-tooltip'
           });
         }
       } else {
@@ -3728,10 +3924,10 @@
           color: '#0284c7',
           weight: 3.5,
           opacity: 0.95
-        }).addTo(vectorLayerGroup);
+        }).addTo(currentLayerGroup || vectorLayerGroup);
 
         obsLine.bindTooltip(`🌊 Observed TWC (${obs.source || 'Cerapan'}): ${formatNauticalBearing(obs.bearing)} | ${obs.distance.toFixed(2)} NM`, {
-          className: 'nautical-map-tooltip'
+          className: 'nautical-map-tooltip nautical-current-tooltip'
         });
 
         obsLine.bindPopup(`
@@ -3788,42 +3984,22 @@
           color: '#38bdf8',
           weight: 3.5,
           opacity: 0.95
-        }).addTo(vectorLayerGroup);
+        }).addTo(driftLayerGroup || vectorLayerGroup);
 
         leftLeewayLine.bindTooltip(`🌬️ + LL (Leeway Kiri): ${formatNauticalBearing(fd.leftTrack)} | ${fd.leewayDist.toFixed(2)} NM`, {
-          className: 'nautical-map-tooltip'
+          className: 'nautical-map-tooltip nautical-drift-tooltip'
         });
-
-        leftLeewayLine.bindPopup(`
-          <div style="font-family: 'Outfit', sans-serif;">
-            <h4 style="color:#0284c7; margin-bottom:4px; font-weight:700;">VEKTOR LEEWAY KIRI (LL)</h4>
-            <p style="margin:2px 0;">Disambungkan dari Hujung TWC ke Datum L</p>
-            <p style="margin:2px 0;"><strong>Haluan Leeway:</strong> ${formatNauticalBearing(fd.leftTrack)} (-${fd.divergence.toFixed(1)}°)</p>
-            <p style="margin:2px 0;"><strong>Kelajuan:</strong> ${fd.leewaySpeed.toFixed(2)} kts</p>
-            <p style="margin:2px 0;"><strong>Jarak Hanyutan:</strong> ${fd.leewayDist.toFixed(2)} NM</p>
-          </div>
-        `);
 
         // 2. Vektor Leeway Kanan (LR): dari scEndPt ke Datum R
         const rightLeewayLine = L.polyline([[scEndPt.lat, scEndPt.lon], [fd.datumLatR, fd.datumLonR]], {
           color: '#a855f7',
           weight: 3.5,
           opacity: 0.95
-        }).addTo(vectorLayerGroup);
+        }).addTo(driftLayerGroup || vectorLayerGroup);
 
         rightLeewayLine.bindTooltip(`🌬️ + LR (Leeway Kanan): ${formatNauticalBearing(fd.rightTrack)} | ${fd.leewayDist.toFixed(2)} NM`, {
-          className: 'nautical-map-tooltip'
+          className: 'nautical-map-tooltip nautical-drift-tooltip'
         });
-
-        rightLeewayLine.bindPopup(`
-          <div style="font-family: 'Outfit', sans-serif;">
-            <h4 style="color:#9333ea; margin-bottom:4px; font-weight:700;">VEKTOR LEEWAY KANAN (LR)</h4>
-            <p style="margin:2px 0;">Disambungkan dari Hujung TWC ke Datum R</p>
-            <p style="margin:2px 0;"><strong>Haluan Leeway:</strong> ${formatNauticalBearing(fd.rightTrack)} (+${fd.divergence.toFixed(1)}°)</p>
-            <p style="margin:2px 0;"><strong>Kelajuan:</strong> ${fd.leewaySpeed.toFixed(2)} kts</p>
-            <p style="margin:2px 0;"><strong>Jarak Hanyutan:</strong> ${fd.leewayDist.toFixed(2)} NM</p>
-          </div>
-        `);
 
         // 3. Garisan Paduan Bersih dari Origin ke Datum L (Track L: D_L = TWC + LL)
         const totalTrackLineL = L.polyline([[originLat, originLon], [fd.datumLatL, fd.datumLonL]], {
@@ -3831,20 +4007,11 @@
           weight: 2.5,
           opacity: 0.85,
           dashArray: '6, 6'
-        }).addTo(vectorLayerGroup);
+        }).addTo(driftLayerGroup || vectorLayerGroup);
 
-        totalTrackLineL.bindTooltip(`🎯 Paduan DL (TWC + LL): ${formatNauticalBearing(fd.totalDriftBearingL)} | ${fd.totalDriftDistL.toFixed(2)} NM`, {
+        totalTrackLineL.bindTooltip(`🎯 Paduan DL (TWC + LL): ${formatNauticalBearing(fd.totalDriftBearingL)} | ${(fd.totalDriftDistL || 0).toFixed(2)} NM`, {
           className: 'nautical-map-tooltip'
         });
-
-        totalTrackLineL.bindPopup(`
-          <div style="font-family: 'Outfit', sans-serif;">
-            <h4 style="color:#0284c7; margin-bottom:4px; font-weight:700;">PADUAN TOTAL SURFACE DRIFT (DATUM L)</h4>
-            <p style="margin:2px 0;"><strong>Formula:</strong> $\\vec{D}_L = \\vec{TWC} + \\vec{LL}$</p>
-            <p style="margin:2px 0;"><strong>Haluan Paduan (Track L):</strong> ${formatNauticalBearing(fd.totalDriftBearingL)}</p>
-            <p style="margin:2px 0;"><strong>Anjakan Bersih (DL):</strong> ${fd.totalDriftDistL.toFixed(2)} NM</p>
-          </div>
-        `);
 
         // 4. Garisan Paduan Bersih dari Origin ke Datum R (Track R: D_R = TWC + LR)
         const totalTrackLineR = L.polyline([[originLat, originLon], [fd.datumLatR, fd.datumLonR]], {
@@ -3852,20 +4019,11 @@
           weight: 2.5,
           opacity: 0.85,
           dashArray: '6, 6'
-        }).addTo(vectorLayerGroup);
+        }).addTo(driftLayerGroup || vectorLayerGroup);
 
-        totalTrackLineR.bindTooltip(`🎯 Paduan DR (TWC + LR): ${formatNauticalBearing(fd.totalDriftBearingR)} | ${fd.totalDriftDistR.toFixed(2)} NM`, {
+        totalTrackLineR.bindTooltip(`🎯 Paduan DR (TWC + LR): ${formatNauticalBearing(fd.totalDriftBearingR)} | ${(fd.totalDriftDistR || 0).toFixed(2)} NM`, {
           className: 'nautical-map-tooltip'
         });
-
-        totalTrackLineR.bindPopup(`
-          <div style="font-family: 'Outfit', sans-serif;">
-            <h4 style="color:#7e22ce; margin-bottom:4px; font-weight:700;">PADUAN TOTAL SURFACE DRIFT (DATUM R)</h4>
-            <p style="margin:2px 0;"><strong>Formula:</strong> $\\vec{D}_R = \\vec{TWC} + \\vec{LR}$</p>
-            <p style="margin:2px 0;"><strong>Haluan Paduan (Track R):</strong> ${formatNauticalBearing(fd.totalDriftBearingR)}</p>
-            <p style="margin:2px 0;"><strong>Anjakan Bersih (DR):</strong> ${fd.totalDriftDistR.toFixed(2)} NM</p>
-          </div>
-        `);
 
         // 5. Garisan Pemisah Divergence Datum (DD) antara Datum L & Datum R
         const ddDist = typeof fd.divergenceDatumDist === 'number' ? fd.divergenceDatumDist : Math.hypot((fd.totalDxR || 0) - (fd.totalDxL || 0), (fd.totalDyR || 0) - (fd.totalDyL || 0));
@@ -3874,7 +4032,7 @@
           weight: 3.5,
           opacity: 0.95,
           dashArray: '5, 5'
-        }).addTo(vectorLayerGroup);
+        }).addTo(radiusLayerGroup || vectorLayerGroup);
 
         ddLine.bindTooltip(`↔️ DD = ${ddDist.toFixed(2)} NM (≈ ${(ddDist * 1.852).toFixed(2)} km)`, {
           permanent: false,
@@ -3882,13 +4040,29 @@
           className: 'nautical-map-tooltip'
         });
 
-        ddLine.bindPopup(`
-          <div style="font-family: 'Outfit', sans-serif; min-width: 200px;">
-            <h4 style="color:#d97706; margin-bottom:4px; font-weight:700;">↔️ DIVERGENCE DATUM (DD)</h4>
-            <p style="margin:2px 0; font-size:0.85rem;"><strong>Jarak Pemisahan:</strong> <span style="color:#f59e0b; font-weight:700;">${ddDist.toFixed(2)} NM</span> (≈ ${(ddDist * 1.852).toFixed(2)} km)</p>
-            <p style="margin:2px 0; font-size:0.8rem; color:#94a3b8;">Garis lurus pemisah fizikal Datum L &harr; Datum R</p>
-          </div>
-        `);
+        // Bulatan Radius Carian (R)
+        if (radiusLayerGroup && fd.searchRadius > 0) {
+          const rMeters = fd.searchRadius * 1852;
+          const circleL = L.circle([fd.datumLatL, fd.datumLonL], {
+            radius: rMeters,
+            color: '#38bdf8',
+            weight: 2,
+            dashArray: '5, 5',
+            fillColor: '#38bdf8',
+            fillOpacity: 0.08
+          }).addTo(radiusLayerGroup);
+          circleL.bindTooltip(`Radius Carian L: ${fd.searchRadius.toFixed(2)} NM`, { className: 'nautical-map-tooltip' });
+
+          const circleR = L.circle([fd.datumLatR, fd.datumLonR], {
+            radius: rMeters,
+            color: '#a855f7',
+            weight: 2,
+            dashArray: '5, 5',
+            fillColor: '#a855f7',
+            fillOpacity: 0.08
+          }).addTo(radiusLayerGroup);
+          circleR.bindTooltip(`Radius Carian R: ${fd.searchRadius.toFixed(2)} NM`, { className: 'nautical-map-tooltip' });
+        }
 
         // 6. Marker Datum L (Kiri)
         const datumLMarker = L.circleMarker([fd.datumLatL, fd.datumLonL], {
@@ -3911,7 +4085,7 @@
             <h4 style="color:#0284c7; margin-bottom:4px; font-weight:700;">📍 DATUM L (CABANG KIRI)</h4>
             <p style="margin:2px 0; font-size:0.85rem;"><strong>Lat:</strong> ${formatCoordinate(fd.datumLatL, true)}</p>
             <p style="margin:2px 0; font-size:0.85rem;"><strong>Lon:</strong> ${formatCoordinate(fd.datumLonL, false)}</p>
-            <p style="margin:2px 0; font-size:0.85rem;"><strong>Anjakan Bersih (DL):</strong> ${fd.totalDriftDistL.toFixed(2)} NM (${formatNauticalBearing(fd.totalDriftBearingL)})</p>
+            <p style="margin:2px 0; font-size:0.85rem;"><strong>Anjakan Bersih (DL):</strong> ${(fd.totalDriftDistL || 0).toFixed(2)} NM (${formatNauticalBearing(fd.totalDriftBearingL)})</p>
             <p style="margin:2px 0; font-size:0.8rem; color:#94a3b8;">Cabang sisihan kiri (-${(fd.divergence || 0).toFixed(1)}°)</p>
           </div>
         `).openPopup();
@@ -3937,13 +4111,13 @@
             <h4 style="color:#9333ea; margin-bottom:4px; font-weight:700;">📍 DATUM R (CABANG KANAN)</h4>
             <p style="margin:2px 0; font-size:0.85rem;"><strong>Lat:</strong> ${formatCoordinate(fd.datumLatR, true)}</p>
             <p style="margin:2px 0; font-size:0.85rem;"><strong>Lon:</strong> ${formatCoordinate(fd.datumLonR, false)}</p>
-            <p style="margin:2px 0; font-size:0.85rem;"><strong>Anjakan Bersih (DR):</strong> ${fd.totalDriftDistR.toFixed(2)} NM (${formatNauticalBearing(fd.totalDriftBearingR)})</p>
+            <p style="margin:2px 0; font-size:0.85rem;"><strong>Anjakan Bersih (DR):</strong> ${(fd.totalDriftDistR || 0).toFixed(2)} NM (${formatNauticalBearing(fd.totalDriftBearingR)})</p>
             <p style="margin:2px 0; font-size:0.8rem; color:#94a3b8;">Cabang sisihan kanan (+${(fd.divergence || 0).toFixed(1)}°)</p>
           </div>
         `);
 
         // Fit bounds jika ada anjakan hanyutan, atau zoom out (skala 8) untuk paparan luas jika belum dikira
-        if (fd.totalDriftDist > 0.05) {
+        if ((fd.totalDriftDist || 0) > 0.05) {
           leafletMap.fitBounds(boundsLatLngs, { padding: [50, 50], maxZoom: 13 });
         } else {
           leafletMap.setView([originLat, originLon], 8);
@@ -3960,10 +4134,10 @@
             color: '#38bdf8',
             weight: 3.5,
             opacity: 0.95
-          }).addTo(vectorLayerGroup);
+          }).addTo(driftLayerGroup || vectorLayerGroup);
 
           leewayLine.bindTooltip(`🌬️ + Leeway: ${formatNauticalBearing(fd.downwindBearing)} | ${fd.leewayDist.toFixed(2)} NM`, {
-            className: 'nautical-map-tooltip'
+            className: 'nautical-map-tooltip nautical-drift-tooltip'
           });
         }
 
@@ -3972,7 +4146,20 @@
           weight: 2.5,
           opacity: 0.85,
           dashArray: '6, 6'
-        }).addTo(vectorLayerGroup);
+        }).addTo(driftLayerGroup || vectorLayerGroup);
+
+        if (radiusLayerGroup && fd.searchRadius > 0) {
+          const rMeters = fd.searchRadius * 1852;
+          const circleSingle = L.circle([datumLat, datumLon], {
+            radius: rMeters,
+            color: '#38bdf8',
+            weight: 2,
+            dashArray: '5, 5',
+            fillColor: '#38bdf8',
+            fillOpacity: 0.08
+          }).addTo(radiusLayerGroup);
+          circleSingle.bindTooltip(`Radius Carian (R): ${fd.searchRadius.toFixed(2)} NM`, { className: 'nautical-map-tooltip' });
+        }
 
         const singleDatumMarker = L.circleMarker([datumLat, datumLon], {
           radius: 9,
@@ -3988,11 +4175,11 @@
             <h4 style="color:#0284c7; margin-bottom: 4px; font-weight:700;">📍 KEDUDUKAN DATUM SAR</h4>
             <p style="margin:3px 0; font-size:0.85rem;"><strong>Lat Datum:</strong> ${formatCoordinate(datumLat, true)}</p>
             <p style="margin:3px 0; font-size:0.85rem;"><strong>Lon Datum:</strong> ${formatCoordinate(datumLon, false)}</p>
-            <p style="margin:3px 0; font-size:0.85rem;"><strong>Jumlah Anjakan:</strong> ${fd.totalDriftDist.toFixed(2)} NM (${formatNauticalBearing(fd.totalDriftBearing)})</p>
+            <p style="margin:3px 0; font-size:0.85rem;"><strong>Jumlah Anjakan:</strong> ${(fd.totalDriftDist || 0).toFixed(2)} NM (${formatNauticalBearing(fd.totalDriftBearing)})</p>
           </div>
         `).openPopup();
 
-        if (fd.totalDriftDist > 0.05) {
+        if ((fd.totalDriftDist || 0) > 0.05) {
           leafletMap.fitBounds(boundsLatLngs, { padding: [50, 50], maxZoom: 13 });
         } else {
           leafletMap.setView([originLat, originLon], 8);
@@ -4002,6 +4189,8 @@
       originMarker.openPopup();
       leafletMap.setView([originLat, originLon], 8);
     }
+
+    syncMapOverlaysVisibility();
   }
 
   // =========================================================================
@@ -4142,7 +4331,8 @@
 
   const PLANNING_DRAWER_TITLES = {
     zta: 'Total Available Search Effort (Zta)',
-    alloc: 'Effort Allocation Worksheet (Ao & Track Spacing)'
+    alloc: 'Effort Allocation Worksheet (Ao & Track Spacing)',
+    waypoints: 'Penjana Titik Laluan Carian (Turn-by-Turn Waypoints & GPX)'
   };
 
   function openPlanningDrawer(panelName) {
@@ -5744,6 +5934,696 @@
     if (boundsPoints.length > 0) {
       leafletMap.fitBounds(boundsPoints, { padding: [60, 60], maxZoom: 14 });
     }
+
+    syncMapOverlaysVisibility();
+  }
+
+  // =========================================================================
+  // PENJANA TITIK LALUAN CARIAN (TURN-BY-TURN WAYPOINTS GENERATOR - FEATURE 4)
+  // =========================================================================
+
+  function onWaypointSourceFacilityChanged() {
+    const srcVal = el.wpSourceFacility ? el.wpSourceFacility.value : 'custom';
+    if (srcVal === 'custom') {
+      if (el.wpCustomCoordsRow) el.wpCustomCoordsRow.style.display = 'grid';
+      return;
+    }
+
+    const facIndex = parseInt(srcVal, 10);
+    if (isNaN(facIndex) || facIndex < 1 || facIndex > 5) return;
+
+    // Baca data dari Fasiliti Zta & Allocation
+    const sInput = document.getElementById(`plan-alloc-s-${facIndex}`);
+    const vInput = document.getElementById(`plan-zta-v-${facIndex}`);
+    const typeSelect = document.getElementById(`plan-zta-type-${facIndex}`);
+    const legsInput = document.getElementById(`res-plan-alloc-legs-${facIndex}`);
+
+    const S = sInput ? (parseFloat(sInput.value) || 1.0) : 1.0;
+    const V = vInput ? (parseFloat(vInput.value) || 10.0) : 10.0;
+    const N = legsInput ? (parseInt(legsInput.value, 10) || 8) : 8;
+    const assetType = typeSelect ? typeSelect.value : 'surface';
+
+    if (el.wpTrackSpacing) el.wpTrackSpacing.value = S.toFixed(2);
+    if (el.wpAssetSpeed) el.wpAssetSpeed.value = V.toFixed(1);
+    if (el.wpLegCount) el.wpLegCount.value = Math.max(2, N);
+
+    if (el.wpPatternType) {
+      if (assetType === 'surface') {
+        el.wpPatternType.value = 'PS';
+      } else {
+        el.wpPatternType.value = 'CS';
+      }
+      onWaypointPatternTypeChanged();
+    }
+
+    generateSearchPatternWaypoints();
+  }
+
+  function onWaypointPatternTypeChanged() {
+    const pType = el.wpPatternType ? el.wpPatternType.value : 'SS';
+    
+    if (pType === 'VS') {
+      // Sector Search: uses Radius R, 9 legs fixed
+      if (el.wpRadiusWrap) el.wpRadiusWrap.style.display = 'block';
+      if (el.wpLegCountWrap) el.wpLegCountWrap.style.display = 'none';
+      if (el.wpTurnDirWrap) el.wpTurnDirWrap.style.display = 'block';
+    } else if (pType === 'SS') {
+      // Expanding Square
+      if (el.wpRadiusWrap) el.wpRadiusWrap.style.display = 'none';
+      if (el.wpLegCountWrap) el.wpLegCountWrap.style.display = 'block';
+      if (el.wpLegCountLabel) el.wpLegCountLabel.textContent = 'Bilangan Leg (Laluan)';
+      if (el.wpTurnDirWrap) el.wpTurnDirWrap.style.display = 'block';
+    } else {
+      // PS & CS
+      if (el.wpRadiusWrap) el.wpRadiusWrap.style.display = 'none';
+      if (el.wpLegCountWrap) el.wpLegCountWrap.style.display = 'block';
+      if (el.wpLegCountLabel) el.wpLegCountLabel.textContent = 'Bilangan Laluan (N)';
+      if (el.wpTurnDirWrap) el.wpTurnDirWrap.style.display = 'block';
+    }
+  }
+
+  function getWaypointOriginCoords() {
+    const originChoice = el.wpOriginTarget ? el.wpOriginTarget.value : 'center';
+    let startLat = state.originGeo.lat;
+    let startLon = state.originGeo.lon;
+
+    if (originChoice === 'center') {
+      if (state.finalDatum) {
+        if (state.finalDatum.datumLatL && state.finalDatum.datumLatR) {
+          startLat = (state.finalDatum.datumLatL + state.finalDatum.datumLatR) / 2;
+          startLon = (state.finalDatum.datumLonL + state.finalDatum.datumLonR) / 2;
+        } else {
+          startLat = state.finalDatum.datumLat || startLat;
+          startLon = state.finalDatum.datumLon || startLon;
+        }
+      }
+    } else if (originChoice === 'left') {
+      if (state.finalDatum && state.finalDatum.datumLatL) {
+        startLat = state.finalDatum.datumLatL;
+        startLon = state.finalDatum.datumLonL;
+      }
+    } else if (originChoice === 'right') {
+      if (state.finalDatum && state.finalDatum.datumLatR) {
+        startLat = state.finalDatum.datumLatR;
+        startLon = state.finalDatum.datumLonR;
+      }
+    } else if (originChoice === 'origin') {
+      startLat = state.originGeo.lat;
+      startLon = state.originGeo.lon;
+    } else if (originChoice === 'custom') {
+      if (el.wpStartLat && el.wpStartLon) {
+        const parsedLat = parseCoordinate(el.wpStartLat.value, true);
+        const parsedLon = parseCoordinate(el.wpStartLon.value, false);
+        if (!isNaN(parsedLat) && !isNaN(parsedLon)) {
+          startLat = parsedLat;
+          startLon = parsedLon;
+        }
+      }
+    }
+
+    if (el.wpStartLat && originChoice !== 'custom') {
+      el.wpStartLat.value = formatCoordinate(startLat, true);
+    }
+    if (el.wpStartLon && originChoice !== 'custom') {
+      el.wpStartLon.value = formatCoordinate(startLon, false);
+    }
+
+    return { lat: startLat, lon: startLon };
+  }
+
+  function generateSearchPatternWaypoints() {
+    const pType = el.wpPatternType ? el.wpPatternType.value : 'SS';
+    const originCoords = getWaypointOriginCoords();
+    const S = el.wpTrackSpacing ? (parseFloat(el.wpTrackSpacing.value) || 1.0) : 1.0;
+    const V = el.wpAssetSpeed ? (parseFloat(el.wpAssetSpeed.value) || 10.0) : 10.0;
+    let heading0 = el.wpInitialHeading ? (parseFloat(el.wpInitialHeading.value) || 0) : 0;
+    heading0 = ((heading0 % 360) + 360) % 360;
+    const turnDir = el.wpTurnDirection ? el.wpTurnDirection.value : 'right';
+    const isClockwise = (turnDir !== 'left');
+    const legCount = el.wpLegCount ? Math.max(2, parseInt(el.wpLegCount.value, 10) || 8) : 8;
+    const R_sector = el.wpSectorRadius ? (parseFloat(el.wpSectorRadius.value) || 3.0) : 3.0;
+
+    const waypoints = [];
+    let curLat = originCoords.lat;
+    let curLon = originCoords.lon;
+    let cumDist = 0.0;
+    let cumTimeMin = 0.0;
+    let totalArea = 0.0;
+
+    if (pType === 'SS') {
+      // Expanding Square Search (SS)
+      // WP1: CSP (Center Datum)
+      waypoints.push({
+        wpIndex: 1,
+        label: 'WP01 (CSP)',
+        isCsp: true,
+        lat: curLat,
+        lon: curLon,
+        heading: heading0,
+        legDist: 0.0,
+        cumDist: 0.0,
+        legTimeMin: 0.0,
+        cumTimeMin: 0.0
+      });
+
+      let curHeading = heading0;
+      const turnStep = isClockwise ? 90 : -90;
+
+      for (let leg = 1; leg <= legCount; leg++) {
+        const legMultiplier = Math.ceil(leg / 2);
+        const legDist = legMultiplier * S;
+        const nextPt = calculateDestinationPoint(curLat, curLon, curHeading, legDist);
+
+        cumDist += legDist;
+        const legTime = (legDist / V) * 60.0;
+        cumTimeMin += legTime;
+        const nextHeading = ((curHeading + turnStep) % 360 + 360) % 360;
+
+        waypoints.push({
+          wpIndex: leg + 1,
+          label: `WP${String(leg + 1).padStart(2, '0')} (L${leg}: ${legMultiplier}S)`,
+          isCsp: false,
+          lat: nextPt.lat,
+          lon: nextPt.lon,
+          heading: curHeading,
+          legDist: legDist,
+          cumDist: cumDist,
+          legTimeMin: legTime,
+          cumTimeMin: cumTimeMin
+        });
+
+        curLat = nextPt.lat;
+        curLon = nextPt.lon;
+        curHeading = nextHeading;
+      }
+
+      const maxSide = Math.ceil(legCount / 2) * S;
+      totalArea = maxSide * maxSide;
+
+    } else if (pType === 'VS') {
+      // Sector Search (VS) - 9 Legs, 10 Waypoints
+      const centerPt = { lat: originCoords.lat, lon: originCoords.lon };
+      waypoints.push({
+        wpIndex: 1,
+        label: 'WP01 (CSP Center)',
+        isCsp: true,
+        lat: centerPt.lat,
+        lon: centerPt.lon,
+        heading: heading0,
+        legDist: 0.0,
+        cumDist: 0.0,
+        legTimeMin: 0.0,
+        cumTimeMin: 0.0
+      });
+
+      const turnStep = isClockwise ? 120 : -120;
+      const radialShift = isClockwise ? 60 : -60;
+
+      let currentBaseRadial = heading0;
+
+      for (let tri = 0; tri < 3; tri++) {
+        const outHeading1 = ((currentBaseRadial) % 360 + 360) % 360;
+        const ptOuter1 = calculateDestinationPoint(centerPt.lat, centerPt.lon, outHeading1, R_sector);
+        
+        // Leg A (Outward from Center)
+        cumDist += R_sector;
+        let legTime = (R_sector / V) * 60.0;
+        cumTimeMin += legTime;
+        const wpNumA = tri * 3 + 2;
+        waypoints.push({
+          wpIndex: wpNumA,
+          label: `WP${String(wpNumA).padStart(2, '0')} (Outer ${tri * 2 + 1})`,
+          isCsp: false,
+          lat: ptOuter1.lat,
+          lon: ptOuter1.lon,
+          heading: outHeading1,
+          legDist: R_sector,
+          cumDist: cumDist,
+          legTimeMin: legTime,
+          cumTimeMin: cumTimeMin
+        });
+
+        // Leg B (Cross outer edge)
+        const crossHeading = ((outHeading1 + turnStep) % 360 + 360) % 360;
+        const ptOuter2 = calculateDestinationPoint(ptOuter1.lat, ptOuter1.lon, crossHeading, R_sector);
+        cumDist += R_sector;
+        legTime = (R_sector / V) * 60.0;
+        cumTimeMin += legTime;
+        const wpNumB = tri * 3 + 3;
+        waypoints.push({
+          wpIndex: wpNumB,
+          label: `WP${String(wpNumB).padStart(2, '0')} (Outer ${tri * 2 + 2})`,
+          isCsp: false,
+          lat: ptOuter2.lat,
+          lon: ptOuter2.lon,
+          heading: crossHeading,
+          legDist: R_sector,
+          cumDist: cumDist,
+          legTimeMin: legTime,
+          cumTimeMin: cumTimeMin
+        });
+
+        // Leg C (Return to Center)
+        const returnHeading = ((crossHeading + turnStep) % 360 + 360) % 360;
+        cumDist += R_sector;
+        legTime = (R_sector / V) * 60.0;
+        cumTimeMin += legTime;
+        const wpNumC = tri * 3 + 4;
+        waypoints.push({
+          wpIndex: wpNumC,
+          label: `WP${String(wpNumC).padStart(2, '0')} (Center ${tri + 1})`,
+          isCsp: false,
+          lat: centerPt.lat,
+          lon: centerPt.lon,
+          heading: returnHeading,
+          legDist: R_sector,
+          cumDist: cumDist,
+          legTimeMin: legTime,
+          cumTimeMin: cumTimeMin
+        });
+
+        currentBaseRadial += radialShift;
+      }
+
+      totalArea = Math.PI * R_sector * R_sector;
+
+    } else {
+      // Parallel Track (PS) / Creeping Line (CS)
+      const isPS = (pType === 'PS');
+      const rotAngleRad = isPS ? (heading0 * Math.PI / 180) : ((heading0 + 90) * Math.PI / 180);
+      const L_leg = Math.max(2.0, S * 4.0); // Default leg length
+      const halfLeg = L_leg / 2;
+      const cosCenter = Math.cos((originCoords.lat * Math.PI) / 180);
+
+      function geoFromLocal(xNM, yNM) {
+        const rx = xNM * Math.cos(rotAngleRad) - yNM * Math.sin(rotAngleRad);
+        const ry = xNM * Math.sin(rotAngleRad) + yNM * Math.cos(rotAngleRad);
+        return {
+          lat: originCoords.lat + (ry / 60.0),
+          lon: originCoords.lon + (rx / (60.0 * cosCenter))
+        };
+      }
+
+      const totalW = legCount * S;
+      let xOffset = -totalW / 2;
+
+      // Start at CSP corner
+      const cspPt = geoFromLocal(xOffset + S / 2, -halfLeg);
+      waypoints.push({
+        wpIndex: 1,
+        label: 'WP01 (CSP)',
+        isCsp: true,
+        lat: cspPt.lat,
+        lon: cspPt.lon,
+        heading: heading0,
+        legDist: 0.0,
+        cumDist: 0.0,
+        legTimeMin: 0.0,
+        cumTimeMin: 0.0
+      });
+
+      let lastPt = cspPt;
+      let wpCounter = 1;
+
+      for (let legIdx = 0; legIdx < legCount; legIdx++) {
+        const trackX = xOffset + (legIdx + 0.5) * S;
+        const isUp = (legIdx % 2 === 0);
+        const yTarget = isUp ? halfLeg : -halfLeg;
+
+        // End of search leg
+        const ptEnd = geoFromLocal(trackX, yTarget);
+        
+        const dLonNM = (ptEnd.lon - lastPt.lon) * 60 * cosCenter;
+        const dLatNM = (ptEnd.lat - lastPt.lat) * 60;
+        const distNM = Math.hypot(dLonNM, dLatNM);
+        let brgDeg = ((Math.atan2(dLonNM, dLatNM) * 180 / Math.PI) + 360) % 360;
+
+        cumDist += distNM;
+        let legTime = (distNM / V) * 60.0;
+        cumTimeMin += legTime;
+        wpCounter++;
+
+        waypoints.push({
+          wpIndex: wpCounter,
+          label: `WP${String(wpCounter).padStart(2, '0')} (Leg ${legIdx + 1})`,
+          isCsp: false,
+          lat: ptEnd.lat,
+          lon: ptEnd.lon,
+          heading: Math.round(brgDeg),
+          legDist: distNM,
+          cumDist: cumDist,
+          legTimeMin: legTime,
+          cumTimeMin: cumTimeMin
+        });
+
+        lastPt = ptEnd;
+
+        // If not the last leg, add the cross leg to next track
+        if (legIdx < legCount - 1) {
+          const nextTrackX = xOffset + (legIdx + 1.5) * S;
+          const ptCross = geoFromLocal(nextTrackX, yTarget);
+          const c_dLonNM = (ptCross.lon - lastPt.lon) * 60 * cosCenter;
+          const c_dLatNM = (ptCross.lat - lastPt.lat) * 60;
+          const c_distNM = Math.hypot(c_dLonNM, c_dLatNM);
+          let c_brgDeg = ((Math.atan2(c_dLonNM, c_dLatNM) * 180 / Math.PI) + 360) % 360;
+
+          cumDist += c_distNM;
+          legTime = (c_distNM / V) * 60.0;
+          cumTimeMin += legTime;
+          wpCounter++;
+
+          waypoints.push({
+            wpIndex: wpCounter,
+            label: `WP${String(wpCounter).padStart(2, '0')} (Turn ${legIdx + 1})`,
+            isCsp: false,
+            lat: ptCross.lat,
+            lon: ptCross.lon,
+            heading: Math.round(c_brgDeg),
+            legDist: c_distNM,
+            cumDist: cumDist,
+            legTimeMin: legTime,
+            cumTimeMin: cumTimeMin
+          });
+
+          lastPt = ptCross;
+        }
+      }
+
+      totalArea = totalW * L_leg;
+    }
+
+    state.waypointGen.waypoints = waypoints;
+    state.waypointGen.totalDistance = cumDist;
+    state.waypointGen.totalTimeMinutes = cumTimeMin;
+    state.waypointGen.totalArea = totalArea;
+
+    renderWaypointsTable();
+  }
+
+  function renderWaypointsTable() {
+    const waypoints = state.waypointGen.waypoints || [];
+    const cumDist = state.waypointGen.totalDistance || 0;
+    const cumTimeMin = state.waypointGen.totalTimeMinutes || 0;
+    const totalArea = state.waypointGen.totalArea || 0;
+
+    // Update summary stat boxes
+    if (el.wpStatTotalPts) el.wpStatTotalPts.textContent = `${waypoints.length} WP`;
+    if (el.wpStatTotalDist) el.wpStatTotalDist.textContent = `${cumDist.toFixed(2)} NM`;
+    if (el.wpStatTotalTime) {
+      const hours = Math.floor(cumTimeMin / 60);
+      const mins = Math.round(cumTimeMin % 60);
+      el.wpStatTotalTime.textContent = `${hours}j ${mins}m (${Math.round(cumTimeMin)}m)`;
+    }
+    if (el.wpStatTotalArea) el.wpStatTotalArea.textContent = `${totalArea.toFixed(2)} NM²`;
+    if (el.summaryPlanWaypointVal) {
+      el.summaryPlanWaypointVal.textContent = `${waypoints.length} WP • ${cumDist.toFixed(1)} NM • GPX Sedia`;
+    }
+
+    if (!el.tbodyWaypoints) return;
+
+    if (waypoints.length === 0) {
+      el.tbodyWaypoints.innerHTML = `
+        <tr>
+          <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">
+            Klik butang <strong>"⚡ Jana Waypoints"</strong> di atas untuk memaparkan senarai koordinat laluan carian.
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    let html = '';
+    waypoints.forEach(wp => {
+      const hours = Math.floor(wp.cumTimeMin / 60);
+      const mins = Math.round(wp.cumTimeMin % 60);
+      const etaFormatted = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+      const badgeClass = wp.isCsp ? 'wp-badge wp-badge-csp' : 'wp-badge wp-badge-leg';
+      const rowClass = wp.isCsp ? 'wp-csp-row' : '';
+
+      html += `
+        <tr class="${rowClass}">
+          <td><span class="${badgeClass}">${wp.wpIndex}</span></td>
+          <td style="font-family: var(--font-mono); font-weight: 600;">${formatCoordinate(wp.lat, true)}</td>
+          <td style="font-family: var(--font-mono); font-weight: 600;">${formatCoordinate(wp.lon, false)}</td>
+          <td style="text-align: right; font-family: var(--font-mono); color: var(--accent-cyan); font-weight: 700;">${String(wp.heading).padStart(3, '0')}°</td>
+          <td style="text-align: right; font-family: var(--font-mono);">${wp.legDist.toFixed(2)}</td>
+          <td style="text-align: right; font-family: var(--font-mono); font-weight: 700;">${wp.cumDist.toFixed(2)}</td>
+          <td style="text-align: right; font-family: var(--font-mono); color: #fbbf24;">+${etaFormatted}</td>
+        </tr>
+      `;
+    });
+
+    el.tbodyWaypoints.innerHTML = html;
+  }
+
+  function copyWaypointsBriefing() {
+    const waypoints = state.waypointGen.waypoints;
+    if (!waypoints || waypoints.length === 0) {
+      generateSearchPatternWaypoints();
+    }
+    const wpList = state.waypointGen.waypoints;
+    if (!wpList || wpList.length === 0) {
+      alert('Sila jana waypoints terlebih dahulu.');
+      return;
+    }
+
+    const pType = el.wpPatternType ? el.wpPatternType.value : 'SS';
+    const patternNames = {
+      SS: 'Expanding Square Search (SS)',
+      VS: 'Sector Search (VS)',
+      PS: 'Parallel Track Search (PS)',
+      CS: 'Creeping Line Search (CS)'
+    };
+    const patternName = patternNames[pType] || pType;
+    const caseTitle = (el.planCaseTitle && el.planCaseTitle.value) || 'Operasi SAR Maritim';
+    const caseNum = (el.planCaseNum && el.planCaseNum.value) || 'SAR-2026/01';
+    const plannerName = (el.planPlannerName && el.planPlannerName.value) || 'SMC / Duty Officer';
+    const targetObj = (el.planSearchObject && el.planSearchObject.value) || 'Rakit Keselamatan';
+    const S = el.wpTrackSpacing ? el.wpTrackSpacing.value : '1.0';
+    const V = el.wpAssetSpeed ? el.wpAssetSpeed.value : '10.0';
+    const totalDist = state.waypointGen.totalDistance.toFixed(2);
+    const totalMins = Math.round(state.waypointGen.totalTimeMinutes);
+    const totalHours = (state.waypointGen.totalTimeMinutes / 60).toFixed(2);
+    const totalArea = state.waypointGen.totalArea.toFixed(2);
+
+    let text = `=========================================================\n`;
+    text += `📋 PELAN CARIAN MARITIM (IAMSAR SEARCH BRIEFING)\n`;
+    text += `=========================================================\n`;
+    text += `Tajuk Kes: ${caseTitle}\n`;
+    text += `No. Kes:   ${caseNum}\n`;
+    text += `Sasaran:   ${targetObj}\n`;
+    text += `Perancang: ${plannerName}\n`;
+    text += `Tarikh:    ${new Date().toISOString().slice(0, 10)} ${new Date().toTimeString().slice(0, 8)} UTC\n\n`;
+
+    text += `---------------------------------------------------------\n`;
+    text += `🧭 MAKLUMAT CORAK CARIAN (SEARCH PATTERN)\n`;
+    text += `---------------------------------------------------------\n`;
+    text += `Corak Carian:        ${patternName}\n`;
+    text += `Titik Mula (CSP):    Lat ${formatCoordinate(wpList[0].lat, true)}, Lon ${formatCoordinate(wpList[0].lon, false)}\n`;
+    text += `Track Spacing (S):   ${S} NM\n`;
+    text += `Kelajuan Aset (V):   ${V} kts\n`;
+    text += `Jumlah Titik (WP):   ${wpList.length} Waypoints\n`;
+    text += `Jumlah Jarak Carian: ${totalDist} NM\n`;
+    text += `Anggaran Masa:       ${totalHours} jam (${totalMins} minit)\n`;
+    text += `Luas Kawasan Carian: ${totalArea} NM²\n\n`;
+
+    text += `---------------------------------------------------------\n`;
+    text += `📍 SENARAI TITIK LALUAN (TURN-BY-TURN WAYPOINTS)\n`;
+    text += `---------------------------------------------------------\n`;
+    wpList.forEach(wp => {
+      const hours = Math.floor(wp.cumTimeMin / 60);
+      const mins = Math.round(wp.cumTimeMin % 60);
+      const etaStr = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+      text += `${wp.label.padEnd(20)} | Lat: ${formatCoordinate(wp.lat, true).padEnd(14)} | Lon: ${formatCoordinate(wp.lon, false).padEnd(15)} | Haluan: ${String(wp.heading).padStart(3, '0')}°T | Leg: ${wp.legDist.toFixed(2).padStart(5)} NM | Kum: ${wp.cumDist.toFixed(2).padStart(5)} NM | ETA: +${etaStr}\n`;
+    });
+
+    text += `\n=========================================================\n`;
+    text += `⚠️ ARAHAN TAKLIMAT & KESELAMATAN:\n`;
+    text += `1. Pastikan perhubungan radio VHF Ch 16 / Ch 68 diaktifkan sepanjang operasi.\n`;
+    text += `2. Laporkan kepada SMC setelah tiba di titik mula (CSP).\n`;
+    text += `3. Laporkan sebarang penemuan visual / serpihan serta merta.\n`;
+    text += `=========================================================`;
+
+    navigator.clipboard.writeText(text).then(() => {
+      showToast('📋 Format Taklimat (Briefing) telah disalin ke papan keratan (Clipboard)!');
+    }).catch(() => {
+      showToast('⚠️ Gagal menyalin secara automatik. Sila pilih dan salin jadual secara manual.');
+    });
+  }
+
+  function exportWaypointsGPX() {
+    const waypoints = state.waypointGen.waypoints;
+    if (!waypoints || waypoints.length === 0) {
+      generateSearchPatternWaypoints();
+    }
+    const wpList = state.waypointGen.waypoints;
+    if (!wpList || wpList.length === 0) {
+      alert('Sila jana waypoints terlebih dahulu.');
+      return;
+    }
+
+    const pType = el.wpPatternType ? el.wpPatternType.value : 'SS';
+    const nowISO = new Date().toISOString();
+    const caseNum = (el.planCaseNum && el.planCaseNum.value) || 'SAR';
+
+    let gpx = `<?xml version="1.0" encoding="UTF-8"?>\n`;
+    gpx += `<gpx version="1.1" creator="IAMSAR Search Pattern Generator" xmlns="http://www.topografix.com/GPX/1/1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">\n`;
+    gpx += `  <metadata>\n`;
+    gpx += `    <name>IAMSAR_${pType}_Pattern_${caseNum}</name>\n`;
+    gpx += `    <desc>Corak Carian ${pType} IAMSAR Vol 2</desc>\n`;
+    gpx += `    <time>${nowISO}</time>\n`;
+    gpx += `  </metadata>\n`;
+    gpx += `  <rte>\n`;
+    gpx += `    <name>SAR_${pType}_ROUTE</name>\n`;
+    gpx += `    <desc>Laluan Corak Carian IAMSAR ${pType}</desc>\n`;
+
+    wpList.forEach(wp => {
+      gpx += `    <rtept lat="${wp.lat.toFixed(6)}" lon="${wp.lon.toFixed(6)}">\n`;
+      gpx += `      <name>WP${String(wp.wpIndex).padStart(2, '0')}</name>\n`;
+      gpx += `      <cmt>${wp.label} - Haluan ${wp.heading}°T - ${wp.legDist.toFixed(2)} NM</cmt>\n`;
+      gpx += `      <sym>Waypoint</sym>\n`;
+      gpx += `    </rtept>\n`;
+    });
+
+    gpx += `  </rte>\n`;
+    gpx += `</gpx>`;
+
+    downloadBlob(gpx, `IAMSAR_SearchPattern_${pType}_${new Date().toISOString().slice(0, 10)}.gpx`, 'application/gpx+xml');
+    showToast(`💾 Fail GPX (${pType}) berjaya dimuat turun!`);
+  }
+
+  function exportWaypointsKML() {
+    const waypoints = state.waypointGen.waypoints;
+    if (!waypoints || waypoints.length === 0) {
+      generateSearchPatternWaypoints();
+    }
+    const wpList = state.waypointGen.waypoints;
+    if (!wpList || wpList.length === 0) {
+      alert('Sila jana waypoints terlebih dahulu.');
+      return;
+    }
+
+    const pType = el.wpPatternType ? el.wpPatternType.value : 'SS';
+    let kml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
+    kml += `<kml xmlns="http://www.opengis.net/kml/2.2">\n`;
+    kml += `  <Document>\n`;
+    kml += `    <name>IAMSAR Search Pattern (${pType})</name>\n`;
+    kml += `    <description>Corak Carian IAMSAR</description>\n`;
+
+    // Placemark LineString
+    kml += `    <Placemark>\n`;
+    kml += `      <name>Laluan Carian ${pType}</name>\n`;
+    kml += `      <LineString>\n`;
+    kml += `        <coordinates>\n`;
+    wpList.forEach(wp => {
+      kml += `          ${wp.lon.toFixed(6)},${wp.lat.toFixed(6)},0\n`;
+    });
+    kml += `        </coordinates>\n`;
+    kml += `      </LineString>\n`;
+    kml += `    </Placemark>\n`;
+
+    // Placemark Waypoints
+    wpList.forEach(wp => {
+      kml += `    <Placemark>\n`;
+      kml += `      <name>${wp.label}</name>\n`;
+      kml += `      <description>Lat: ${formatCoordinate(wp.lat, true)}, Lon: ${formatCoordinate(wp.lon, false)}, Haluan: ${wp.heading}°T, Leg: ${wp.legDist.toFixed(2)} NM</description>\n`;
+      kml += `      <Point>\n`;
+      kml += `        <coordinates>${wp.lon.toFixed(6)},${wp.lat.toFixed(6)},0</coordinates>\n`;
+      kml += `      </Point>\n`;
+      kml += `    </Placemark>\n`;
+    });
+
+    kml += `  </Document>\n`;
+    kml += `</kml>`;
+
+    downloadBlob(kml, `IAMSAR_SearchPattern_${pType}_${new Date().toISOString().slice(0, 10)}.kml`, 'application/vnd.google-earth.kml+xml');
+    showToast(`💾 Fail KML (${pType}) berjaya dimuat turun!`);
+  }
+
+  function downloadBlob(content, filename, mimeType) {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function plotWaypointsOnMap() {
+    if (!state.waypointGen.waypoints || state.waypointGen.waypoints.length === 0) {
+      generateSearchPatternWaypoints();
+    }
+    const wpList = state.waypointGen.waypoints;
+    if (!wpList || wpList.length === 0) return;
+
+    if (state.displayMode !== 'map') {
+      switchDisplayMode('map');
+    }
+
+    if (!leafletMap) return;
+
+    if (!waypointMarkerLayerGroup) {
+      waypointMarkerLayerGroup = L.layerGroup().addTo(leafletMap);
+    }
+    waypointMarkerLayerGroup.clearLayers();
+
+    const bounds = [];
+    const latLngs = wpList.map(wp => {
+      bounds.push([wp.lat, wp.lon]);
+      return [wp.lat, wp.lon];
+    });
+
+    // Draw route track polyline
+    const routeLine = L.polyline(latLngs, {
+      color: '#f59e0b',
+      weight: 3.5,
+      dashArray: '6, 4',
+      opacity: 0.95
+    }).addTo(waypointMarkerLayerGroup);
+
+    routeLine.bindTooltip(`🧭 Laluan Carian: ${wpList.length} Waypoint (${state.waypointGen.totalDistance.toFixed(2)} NM)`, {
+      className: 'nautical-map-tooltip'
+    });
+
+    // Draw waypoint markers
+    wpList.forEach(wp => {
+      const markerColor = wp.isCsp ? '#ef4444' : '#f59e0b';
+      const wpMarker = L.circleMarker([wp.lat, wp.lon], {
+        radius: wp.isCsp ? 8.5 : 6,
+        fillColor: markerColor,
+        color: '#ffffff',
+        weight: 2,
+        fillOpacity: 1
+      }).addTo(waypointMarkerLayerGroup);
+
+      const hours = Math.floor(wp.cumTimeMin / 60);
+      const mins = Math.round(wp.cumTimeMin % 60);
+      const etaStr = `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+
+      wpMarker.bindPopup(`
+        <div style="font-family: 'Outfit', sans-serif; min-width: 200px;">
+          <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px; border-bottom:1px solid rgba(0,0,0,0.1); padding-bottom:3px;">
+            <span style="background:${markerColor}; color:#fff; font-size:0.68rem; font-weight:800; padding:2px 6px; border-radius:3px;">WP ${wp.wpIndex}</span>
+            <strong style="color:${markerColor}; font-size:0.92rem;">${wp.label}</strong>
+          </div>
+          <p style="margin:2px 0; font-size:0.82rem;"><strong>Lat:</strong> ${formatCoordinate(wp.lat, true)}</p>
+          <p style="margin:2px 0; font-size:0.82rem;"><strong>Lon:</strong> ${formatCoordinate(wp.lon, false)}</p>
+          <p style="margin:2px 0; font-size:0.82rem;"><strong>Haluan:</strong> ${String(wp.heading).padStart(3, '0')}°T</p>
+          <p style="margin:2px 0; font-size:0.82rem;"><strong>Jarak Leg:</strong> ${wp.legDist.toFixed(2)} NM (Kum: ${wp.cumDist.toFixed(2)} NM)</p>
+          <p style="margin:2px 0; font-size:0.82rem;"><strong>ETA:</strong> +${etaStr} (${Math.round(wp.cumTimeMin)} min)</p>
+        </div>
+      `);
+    });
+
+    if (bounds.length > 0) {
+      leafletMap.fitBounds(bounds, { padding: [50, 50], maxZoom: 14 });
+    }
+
+    syncMapOverlaysVisibility();
+    showToast(`🗺️ Corak carian berjaya dipaparkan pada peta laut!`);
   }
 
   function calculateTimeInterval() {
@@ -5799,6 +6679,7 @@
       el.mapContainer.style.display = 'none';
       if (el.mcCanvasOverlay) el.mcCanvasOverlay.style.display = 'none';
       if (el.mcTimelineBar) el.mcTimelineBar.style.display = 'none';
+      if (el.mapOverlayControls) el.mapOverlayControls.style.display = 'none';
       el.gridControls.style.display = 'flex';
       el.compassBadge.style.display = 'block';
 
@@ -5815,6 +6696,7 @@
       el.canvas.style.display = 'none';
       el.mapContainer.style.display = 'block';
       if (el.mcTimelineBar) el.mcTimelineBar.style.display = 'flex';
+      if (el.mapOverlayControls) el.mapOverlayControls.style.display = 'block';
       el.gridControls.style.display = 'none';
       el.compassBadge.style.display = 'none';
 
@@ -5828,6 +6710,7 @@
         if (leafletMap) {
           leafletMap.invalidateSize();
           updateLeafletMap();
+          syncMapOverlaysVisibility();
         }
       };
 
@@ -7203,6 +8086,60 @@
       el.datumIntervalInput.addEventListener('change', onIntervalHoursChanged);
     }
 
+    // Feature 5: Floating Map Overlays Toggles
+    document.querySelectorAll('[data-map-layer]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const layerKey = btn.dataset.mapLayer;
+        if (!layerKey || !state.mapOverlays) return;
+        state.mapOverlays[layerKey] = !state.mapOverlays[layerKey];
+        syncMapOverlaysVisibility();
+      });
+    });
+
+    // Feature 4: Penjana Waypoint Carian (Turn-by-Turn Waypoints)
+    if (el.wpSourceFacility) {
+      el.wpSourceFacility.addEventListener('change', onWaypointSourceFacilityChanged);
+    }
+    if (el.wpPatternType) {
+      el.wpPatternType.addEventListener('change', () => {
+        onWaypointPatternTypeChanged();
+        generateSearchPatternWaypoints();
+      });
+    }
+    if (el.wpOriginTarget) {
+      el.wpOriginTarget.addEventListener('change', () => {
+        const isCustom = el.wpOriginTarget.value === 'custom';
+        if (el.wpCustomCoordsRow) el.wpCustomCoordsRow.style.display = isCustom ? 'grid' : 'none';
+        generateSearchPatternWaypoints();
+      });
+    }
+    const wpLiveInputs = [
+      el.wpStartLat, el.wpStartLon, el.wpTrackSpacing, el.wpAssetSpeed,
+      el.wpInitialHeading, el.wpTurnDirection, el.wpLegCount, el.wpSectorRadius
+    ];
+    wpLiveInputs.forEach(inputEl => {
+      if (inputEl) {
+        inputEl.addEventListener('input', () => generateSearchPatternWaypoints());
+        inputEl.addEventListener('change', () => generateSearchPatternWaypoints());
+      }
+    });
+
+    if (el.btnGenerateWaypoints) {
+      el.btnGenerateWaypoints.addEventListener('click', () => generateSearchPatternWaypoints());
+    }
+    if (el.btnPlotWaypointsMap) {
+      el.btnPlotWaypointsMap.addEventListener('click', () => plotWaypointsOnMap());
+    }
+    if (el.btnCopyWpBriefing) {
+      el.btnCopyWpBriefing.addEventListener('click', () => copyWaypointsBriefing());
+    }
+    if (el.btnExportWpGpx) {
+      el.btnExportWpGpx.addEventListener('click', () => exportWaypointsGPX());
+    }
+    if (el.btnExportWpKml) {
+      el.btnExportWpKml.addEventListener('click', () => exportWaypointsKML());
+    }
+
     // Kemaskini live preview jarak bila kelajuan atau masa berubah
     el.speedInput.addEventListener('input', updateDistancePreview);
     el.timeInput.addEventListener('input', updateDistancePreview);
@@ -8353,6 +9290,8 @@
     }
 
     updateCaseInfoUI();
+    onWaypointPatternTypeChanged();
+    generateSearchPatternWaypoints();
     switchTab(state.activeTab || 'vector');
   });
 

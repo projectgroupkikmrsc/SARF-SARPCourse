@@ -2841,3 +2841,190 @@ body {
   font-size: 0.7rem;
   color: var(--text-sub);
 }
+
+/* =========================================================
+   FLOATING MAP OVERLAYS CONTROLS (FEATURE 5)
+   ========================================================= */
+.map-overlay-layer-controls {
+  position: absolute;
+  top: 12px;
+  left: 14px;
+  z-index: 500;
+  pointer-events: auto;
+  max-width: calc(100% - 70px);
+}
+
+.map-overlay-btn-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--bg-overlay);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  padding: 0.3rem 0.4rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.map-layer-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.55rem;
+  border-radius: 20px;
+  border: 1px solid var(--border-color-light);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+}
+
+.map-layer-pill:hover {
+  background: rgba(56, 189, 248, 0.12);
+  color: var(--text-main);
+  border-color: rgba(56, 189, 248, 0.4);
+}
+
+.map-layer-pill.active {
+  background: rgba(56, 189, 248, 0.18);
+  color: #38bdf8;
+  border-color: #38bdf8;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.25);
+}
+
+.map-layer-pill .pill-icon {
+  font-size: 0.8rem;
+  line-height: 1;
+}
+
+.map-layer-pill .pill-label {
+  letter-spacing: 0.01em;
+}
+
+[data-theme="light"] .map-overlay-btn-group {
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12);
+}
+
+[data-theme="light"] .map-layer-pill {
+  background: rgba(15, 23, 42, 0.04);
+  border-color: rgba(15, 23, 42, 0.1);
+  color: #475569;
+}
+
+[data-theme="light"] .map-layer-pill.active {
+  background: rgba(2, 132, 199, 0.12);
+  color: #0284c7;
+  border-color: #0284c7;
+  box-shadow: 0 0 8px rgba(2, 132, 199, 0.2);
+}
+
+/* =========================================================
+   TURN-BY-TURN WAYPOINTS GENERATOR (FEATURE 4)
+   ========================================================= */
+.wp-summary-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.4rem;
+}
+
+.wp-stat-box {
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 0.4rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.wp-stat-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.wp-stat-val {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #fbbf24;
+  margin-top: 1px;
+}
+
+.wp-table {
+  font-size: 0.74rem;
+}
+
+.wp-table th, .wp-table td {
+  padding: 0.4rem 0.55rem;
+}
+
+.wp-table tbody tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.wp-table tbody tr.wp-csp-row {
+  background: rgba(251, 191, 36, 0.12);
+  font-weight: 700;
+}
+
+.wp-badge {
+  display: inline-block;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-weight: 700;
+  font-size: 0.68rem;
+  font-family: var(--font-mono);
+}
+
+.wp-badge-csp {
+  background: #f59e0b;
+  color: #0f172a;
+}
+
+.wp-badge-leg {
+  background: rgba(56, 189, 248, 0.2);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.4);
+}
+
+.wp-export-actions {
+  margin-top: 0.55rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+/* Nautical Vector Tooltip Extra Glows */
+.leaflet-tooltip.nautical-wind-tooltip {
+  background: rgba(14, 116, 144, 0.92);
+  border: 1px solid #06b6d4;
+  color: #e0f2fe;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(6, 182, 212, 0.35);
+}
+
+.leaflet-tooltip.nautical-current-tooltip {
+  background: rgba(30, 58, 138, 0.92);
+  border: 1px solid #38bdf8;
+  color: #f0f9ff;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(56, 189, 248, 0.35);
+}
+
+.leaflet-tooltip.nautical-drift-tooltip {
+  background: rgba(180, 83, 9, 0.92);
+  border: 1px solid #fbbf24;
+  color: #fffbeb;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(251, 191, 36, 0.35);
+}

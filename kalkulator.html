@@ -2231,7 +2231,21 @@
                     </div>
                   </div>
 
-                  <!-- Item 3: Routing Status Banner -->
+                  <!-- Item 3: Penjana Waypoint (SS/VS/PS/CS) -->
+                  <div class="cockpit-data-item" data-planning-drawer="waypoints" title="Buka Penjana Turn-by-Turn Waypoints &amp; Export GPX">
+                    <div class="data-item-left">
+                      <span class="status-indicator-dot" style="background:#f59e0b; color:#f59e0b;"></span>
+                      <div class="data-item-info">
+                        <div class="data-item-title">3. Penjana Waypoint (SS/VS/PS/CS)</div>
+                        <div class="data-item-val" id="summary-plan-waypoint-val">0 Waypoints &bull; GPX Sedia</div>
+                      </div>
+                    </div>
+                    <div class="data-item-chevron">
+                      <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                    </div>
+                  </div>
+
+                  <!-- Item 4: Routing Status Banner -->
                   <div id="summary-plan-routing-banner" style="margin-top: 0.45rem; padding: 0.5rem 0.65rem; background: rgba(56, 189, 248, 0.08); border-radius: var(--radius-sm); border-left: 3px solid #38bdf8; font-size: 0.72rem; line-height: 1.4; color: var(--text-main);">
                     <span style="font-weight: 700; color: #38bdf8;">ℹ️ Routing:</span> Lengkapkan jadual fasiliti di Drawer <strong>Z<sub>ta</sub></strong>.
                   </div>
@@ -2264,6 +2278,9 @@
                 </button>
                 <button type="button" class="rail-btn" data-planning-rail="alloc" title="Buka Worksheet Effort Allocation">
                   <span class="rail-text">ALLOCATION</span>
+                </button>
+                <button type="button" class="rail-btn" data-planning-rail="waypoints" title="Buka Penjana Turn-by-Turn Waypoints &amp; Corak Carian">
+                  <span class="rail-text">WAYPOINTS</span>
                 </button>
               </div>
 
@@ -2982,6 +2999,196 @@
                   </section>
                 </div>
 
+                <!-- =========================================================
+                     DRAWER 3: CORAK CARIAN & TURN-BY-TURN WAYPOINTS GENERATOR
+                     ========================================================= -->
+                <div class="drawer-panel-section" id="drawer-panel-waypoints">
+                  <!-- BAHAGIAN 1: KONFIGURASI CORAK & SUMBER -->
+                  <div class="subpanel-divider-header">
+                    <span class="subpanel-letter" style="background: linear-gradient(135deg, #f59e0b, #d97706);">1</span>
+                    <div class="subpanel-title-wrap">
+                      <h4>Konfigurasi Corak Carian (Search Pattern Setup)</h4>
+                      <small>Pilih corak IAMSAR (SS, VS, PS, CS) &amp; parameter laluan</small>
+                    </div>
+                  </div>
+
+                  <section class="card" style="margin-bottom: 0.65rem; padding: 0.75rem;">
+                    <!-- Sumber Fasiliti / Auto-Sync -->
+                    <div class="form-group-wrap" style="margin-bottom: 0.55rem;">
+                      <label for="wp-source-facility" style="font-size: 0.75rem; font-weight: 700; color: #fbbf24; display: flex; align-items: center; justify-content: space-between;">
+                        <span>📋 Sumber Parameter (Auto-Fill)</span>
+                        <span style="font-size: 0.68rem; color: var(--text-muted); font-weight: normal;">Pilih fasiliti atau manual</span>
+                      </label>
+                      <select id="wp-source-facility" class="form-input" style="font-size: 0.8rem; font-weight: 600;">
+                        <option value="custom">✏️ Tersuai / Manual (Custom Input)</option>
+                        <option value="1">🚢 Fasiliti 1 (Sub-Area 1)</option>
+                        <option value="2">🚁 Fasiliti 2 (Sub-Area 2)</option>
+                        <option value="3">✈️ Fasiliti 3 (Sub-Area 3)</option>
+                        <option value="4">🚤 Fasiliti 4 (Sub-Area 4)</option>
+                        <option value="5">🚢 Fasiliti 5 (Sub-Area 5)</option>
+                      </select>
+                    </div>
+
+                    <!-- Jenis Corak & Titik Mula / Datum -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.55rem;">
+                      <div class="form-group-wrap">
+                        <label for="wp-pattern-type" style="font-size: 0.75rem; font-weight: 700; color: var(--accent-cyan);">Jenis Corak IAMSAR</label>
+                        <select id="wp-pattern-type" class="form-input" style="font-size: 0.8rem; font-weight: 600;">
+                          <option value="SS">SS - Expanding Square</option>
+                          <option value="VS">VS - Sector Search</option>
+                          <option value="PS">PS - Parallel Track</option>
+                          <option value="CS">CS - Creeping Line</option>
+                        </select>
+                      </div>
+
+                      <div class="form-group-wrap">
+                        <label for="wp-origin-target" style="font-size: 0.75rem; font-weight: 700; color: var(--accent-cyan);">Titik Mula / Datum</label>
+                        <select id="wp-origin-target" class="form-input" style="font-size: 0.8rem; font-weight: 600;">
+                          <option value="center">🎯 Datum Utama (Center)</option>
+                          <option value="left">🔵 Datum Left (DL)</option>
+                          <option value="right">🟢 Datum Right (DR)</option>
+                          <option value="origin">🏁 Titik Origin / LKP</option>
+                          <option value="custom">📍 Koordinat Manual</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <!-- Koordinat Lat / Lon Titik Mula (Boleh diubah bila Custom) -->
+                    <div id="wp-custom-coords-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.55rem;">
+                      <div class="form-group-wrap">
+                        <label for="wp-start-lat" style="font-size: 0.72rem; color: var(--text-muted);">Latitud Mula</label>
+                        <input type="text" id="wp-start-lat" class="form-input" value="04° 15.00' N" style="font-size: 0.78rem; font-family: var(--font-mono);">
+                      </div>
+                      <div class="form-group-wrap">
+                        <label for="wp-start-lon" style="font-size: 0.72rem; color: var(--text-muted);">Longitud Mula</label>
+                        <input type="text" id="wp-start-lon" class="form-input" value="101° 45.00' E" style="font-size: 0.78rem; font-family: var(--font-mono);">
+                      </div>
+                    </div>
+
+                    <!-- Parameter Operasi: S, V, Heading, Turns, Legs -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.45rem; margin-bottom: 0.55rem;">
+                      <div class="form-group-wrap">
+                        <label for="wp-track-spacing" style="font-size: 0.72rem; font-weight: 600; color: var(--text-muted);" title="Track Spacing (S)">Track Spacing S (NM)</label>
+                        <input type="number" id="wp-track-spacing" class="form-input" step="0.1" min="0.1" value="1.0" style="font-size: 0.8rem; font-family: var(--font-mono);">
+                      </div>
+
+                      <div class="form-group-wrap">
+                        <label for="wp-asset-speed" style="font-size: 0.72rem; font-weight: 600; color: var(--text-muted);" title="Kelajuan Aset Pencari (V)">Kelajuan V (kts)</label>
+                        <input type="number" id="wp-asset-speed" class="form-input" step="0.5" min="1" value="10.0" style="font-size: 0.8rem; font-family: var(--font-mono);">
+                      </div>
+
+                      <div class="form-group-wrap">
+                        <label for="wp-initial-heading" style="font-size: 0.72rem; font-weight: 600; color: var(--text-muted);" title="Haluan Permulaan (°T)">Haluan Awal (°T)</label>
+                        <input type="number" id="wp-initial-heading" class="form-input" step="1" min="0" max="360" value="0" style="font-size: 0.8rem; font-family: var(--font-mono);">
+                      </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem; margin-bottom: 0.55rem;">
+                      <div class="form-group-wrap" id="wp-turn-dir-wrap">
+                        <label for="wp-turn-direction" style="font-size: 0.72rem; font-weight: 600; color: var(--text-muted);">Arah Pusingan (Turns)</label>
+                        <select id="wp-turn-direction" class="form-input" style="font-size: 0.78rem;">
+                          <option value="right">➡️ Kanan (Starboard / Clockwise)</option>
+                          <option value="left">⬅️ Kiri (Port / Anti-Clockwise)</option>
+                        </select>
+                      </div>
+
+                      <div class="form-group-wrap" id="wp-leg-count-wrap">
+                        <label for="wp-leg-count" style="font-size: 0.72rem; font-weight: 600; color: var(--text-muted);" id="wp-leg-count-label">Bilangan Leg / Laluan</label>
+                        <input type="number" id="wp-leg-count" class="form-input" step="1" min="2" max="30" value="8" style="font-size: 0.8rem; font-family: var(--font-mono);">
+                      </div>
+
+                      <div class="form-group-wrap" id="wp-radius-wrap" style="display: none;">
+                        <label for="wp-sector-radius" style="font-size: 0.72rem; font-weight: 600; color: var(--text-muted);">Radius Carian R (NM)</label>
+                        <input type="number" id="wp-sector-radius" class="form-input" step="0.5" min="0.5" value="3.0" style="font-size: 0.8rem; font-family: var(--font-mono);">
+                      </div>
+                    </div>
+
+                    <!-- Butang Jana & Plot -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem; margin-top: 0.6rem;">
+                      <button type="button" id="btn-generate-waypoints" class="btn btn-primary" style="background: linear-gradient(135deg, #f59e0b, #d97706); border: none; font-size: 0.8rem; font-weight: 700; padding: 0.55rem;">
+                        <span>⚡ Jana Waypoints</span>
+                      </button>
+                      <button type="button" id="btn-plot-waypoints-map" class="btn btn-outline" style="border-color: #38bdf8; color: #38bdf8; background: rgba(56, 189, 248, 0.08); font-size: 0.8rem; font-weight: 700; padding: 0.55rem;">
+                        <span>🗺️ Papar ke Peta</span>
+                      </button>
+                    </div>
+                  </section>
+
+                  <!-- BAHAGIAN 2: JADUAL TITIK LALUAN TURN-BY-TURN -->
+                  <div class="subpanel-divider-header" style="margin-top: 0.55rem;">
+                    <span class="subpanel-letter" style="background: linear-gradient(135deg, #38bdf8, #0284c7);">2</span>
+                    <div class="subpanel-title-wrap">
+                      <h4>Jadual Titik Laluan (Turn-by-Turn Waypoints)</h4>
+                      <small>Koordinat GPS, Haluan (°T), Jarak &amp; Anggaran Masa Leg</small>
+                    </div>
+                  </div>
+
+                  <!-- Summary Stats Bar -->
+                  <div class="wp-summary-stats-grid" id="wp-summary-stats" style="margin-bottom: 0.55rem;">
+                    <div class="wp-stat-box">
+                      <span class="wp-stat-label">Jumlah Titik</span>
+                      <strong class="wp-stat-val" id="wp-stat-total-pts">0 WP</strong>
+                    </div>
+                    <div class="wp-stat-box">
+                      <span class="wp-stat-label">Jumlah Jarak</span>
+                      <strong class="wp-stat-val" id="wp-stat-total-dist">0.00 NM</strong>
+                    </div>
+                    <div class="wp-stat-box">
+                      <span class="wp-stat-label">Jumlah Masa</span>
+                      <strong class="wp-stat-val" id="wp-stat-total-time">0m (0.0j)</strong>
+                    </div>
+                    <div class="wp-stat-box">
+                      <span class="wp-stat-label">Luas Liputan</span>
+                      <strong class="wp-stat-val" id="wp-stat-total-area">0.00 NM²</strong>
+                    </div>
+                  </div>
+
+                  <!-- Waypoint Table -->
+                  <div class="table-responsive" style="max-height: 280px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--radius-sm); margin-bottom: 0.65rem;">
+                    <table class="iamsar-data-table wp-table" id="table-waypoints">
+                      <thead>
+                        <tr>
+                          <th style="width: 42px;">WP</th>
+                          <th>Latitud (GPS)</th>
+                          <th>Longitud (GPS)</th>
+                          <th style="text-align: right;">Haluan</th>
+                          <th style="text-align: right;">Leg (NM)</th>
+                          <th style="text-align: right;">Kum (NM)</th>
+                          <th style="text-align: right;">ETA</th>
+                        </tr>
+                      </thead>
+                      <tbody id="tbody-waypoints">
+                        <tr>
+                          <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">
+                            Klik butang <strong>"⚡ Jana Waypoints"</strong> di atas untuk memaparkan senarai koordinat laluan carian.
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <!-- Action Buttons: Copy Briefing, Download GPX, Download KML -->
+                  <div class="wp-export-actions">
+                    <button type="button" id="btn-copy-wp-briefing" class="btn btn-outline" style="border-color: #fbbf24; color: #fbbf24; background: rgba(251, 191, 36, 0.08); font-size: 0.78rem; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 0.4rem; padding: 0.55rem; width: 100%; margin-bottom: 0.45rem;">
+                      <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                      <span>📋 Salin Teks Format Taklimat (Briefing)</span>
+                    </button>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.45rem;">
+                      <button type="button" id="btn-export-wp-gpx" class="btn btn-primary" style="background: linear-gradient(135deg, #10b981, #059669); border: none; font-size: 0.78rem; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 0.4rem; padding: 0.55rem;">
+                        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        <span>💾 Muat Turun GPX (.gpx)</span>
+                      </button>
+
+                      <button type="button" id="btn-export-wp-kml" class="btn btn-outline" style="border-color: #38bdf8; color: #38bdf8; background: rgba(56, 189, 248, 0.08); font-size: 0.78rem; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 0.4rem; padding: 0.55rem;">
+                        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+                        <span>💾 Muat Turun KML (.kml)</span>
+                      </button>
+                    </div>
+                  </div>
+
+                </div>
+
               </div>
             </div>
 
@@ -3029,6 +3236,32 @@
           <div id="leafletMap" style="display: none;"></div>
           <!-- Mod 2 Overlay: Monte Carlo Particle Simulation Canvas -->
           <canvas id="mcCanvasOverlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 450; display: none;"></canvas>
+
+          <!-- Floating Map Layers & Vector Overlays Toggle Bar (Aktif dalam Mod Peta) -->
+          <div class="map-overlay-layer-controls" id="map-overlay-controls" style="display: none;">
+            <div class="map-overlay-btn-group">
+              <button type="button" class="map-layer-pill active" id="btn-toggle-wind-layer" data-map-layer="wind" title="Togol Vektor &amp; Arah Angin (ASW)">
+                <span class="pill-icon">💨</span>
+                <span class="pill-label">Angin (ASW)</span>
+              </button>
+              <button type="button" class="map-layer-pill active" id="btn-toggle-current-layer" data-map-layer="current" title="Togol Vektor Arus Laut (TWC / SC)">
+                <span class="pill-icon">🌊</span>
+                <span class="pill-label">Arus (TWC)</span>
+              </button>
+              <button type="button" class="map-layer-pill active" id="btn-toggle-drift-layer" data-map-layer="driftTriangle" title="Togol Segitiga Hanyutan (Drift Triangle)">
+                <span class="pill-icon">📐</span>
+                <span class="pill-label">Segitiga Hanyutan</span>
+              </button>
+              <button type="button" class="map-layer-pill active" id="btn-toggle-pattern-layer" data-map-layer="searchTracks" title="Togol Corak Laluan Carian &amp; Waypoints">
+                <span class="pill-icon">🧭</span>
+                <span class="pill-label">Laluan Carian</span>
+              </button>
+              <button type="button" class="map-layer-pill active" id="btn-toggle-radius-layer" data-map-layer="datumRadius" title="Togol Radius &amp; Kawasan Carian (R / At)">
+                <span class="pill-icon">🎯</span>
+                <span class="pill-label">Radius (R)</span>
+              </button>
+            </div>
+          </div>
 
           <!-- Floating Map Compass Indicator (Hanya dalam mod canvas) -->
           <div class="compass-overlay" id="compass-badge">
