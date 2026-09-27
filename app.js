@@ -756,8 +756,8 @@
   // Dedahkan iamsarTables secara global
   window.iamsarTables = IAMSAR_TABLES;
 
-  // --- State Aplikasi ---
   const state = {
+    vectorViewMode: 'graph', // 'graph' (Cartesian Grid) atau 'moboard' (Maneuvering Board Polar Form)
     vectors: [],      // Senarai vektor (Tab 1): [{ id, legIndex, bearing, speed, time, distance, dx, dy, x0, y0, x1, y1, color }]
     points: [{ x: 0, y: 0 }], // Senarai titik grid matematik: p0=(0,0), p1, p2...
     isCalculated: false,
@@ -886,7 +886,10 @@
     btnThemeToggle: document.getElementById('btn-theme-toggle'),
     themeToggleText: document.getElementById('theme-toggle-text'),
     
-    // Indikator Mod Paparan Kanan
+    // Indikator Mod Paparan Kanan & Togol Graf / MoBoard
+    vectorViewToggle: document.getElementById('vector-view-toggle'),
+    btnViewGraph: document.getElementById('btn-view-graph'),
+    btnViewMoboard: document.getElementById('btn-view-moboard'),
     viewModeIcon: document.getElementById('view-mode-icon'),
     viewModeTitle: document.getElementById('view-mode-title'),
     gridControls: document.getElementById('grid-controls'),
@@ -4021,7 +4024,7 @@
     });
 
     // Automatik paparan sebelah kanan:
-    // Tab 1 (Vector) -> Papar Carta Grid (Tiada kaitan dengan Datum / Monte Carlo)
+    // Tab 1 (Vector) -> Papar Carta Grid / MoBoard
     // Tab 2 (Determining Datum) & Tab 3 (Planning) -> Papar Peta Laut
     if (tabName === 'vector') {
       closeDrawer();
@@ -4029,12 +4032,15 @@
       if (typeof closeMonteCarlo === 'function') {
         closeMonteCarlo();
       }
+      if (el.vectorViewToggle) el.vectorViewToggle.style.display = 'inline-flex';
       switchDisplayMode('grid');
     } else if (tabName === 'datum') {
       closePlanningDrawer();
+      if (el.vectorViewToggle) el.vectorViewToggle.style.display = 'none';
       switchDisplayMode('map');
     } else if (tabName === 'planning') {
       closeDrawer();
+      if (el.vectorViewToggle) el.vectorViewToggle.style.display = 'none';
       syncPlanningFromTab2(false);
       calculatePlanning();
       openPlanningDrawer(state.planning && state.planning.activeDrawer ? state.planning.activeDrawer : 'zta');
@@ -6120,8 +6126,13 @@
 
     ctx.clearRect(0, 0, width, height);
 
-    drawNauticalGrid(width, height);
-    drawAxes(width, height);
+    if (state.vectorViewMode === 'moboard') {
+      drawManeuveringBoard(width, height);
+    } else {
+      drawNauticalGrid(width, height);
+      drawAxes(width, height);
+    }
+
     drawVectors();
 
     if (state.isCalculated && state.resultant) {
@@ -6129,6 +6140,129 @@
     }
 
     drawWaypoints();
+  }
+
+  function drawManeuveringBoard(width, height) {
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    const ppm = state.view.basePixelsPerNM * state.view.zoom;
+    const origin = getOriginScreenPos();
+
+    // Tentukan skala jejari bulatan MoBoard
+    let ringStepNM = 1;
+    const targetPixelStep = 55;
+    const rawStep = targetPixelStep / ppm;
+
+    if (rawStep <= 0.2) ringStepNM = 0.2;
+    else if (rawStep <= 0.5) ringStepNM = 0.5;
+    else if (rawStep <= 1) ringStepNM = 1;
+    else if (rawStep <= 2) ringStepNM = 2;
+    else if (rawStep <= 5) ringStepNM = 5;
+    else if (rawStep <= 10) ringStepNM = 10;
+    else if (rawStep <= 20) ringStepNM = 20;
+    else ringStepNM = 50;
+
+    if (el.chartScaleIndicator) {
+      el.chartScaleIndicator.textContent = `MoBoard Ring = ${ringStepNM} NM`;
+    }
+
+    const maxDim = Math.max(width, height) * 1.5;
+    const maxRings = Math.min(30, Math.ceil(maxDim / (ringStepNM * ppm)));
+
+    // Warna mengikut tema
+    const ringColor = isLight ? 'rgba(2, 132, 199, 0.18)' : 'rgba(56, 189, 248, 0.12)';
+    const boldRingColor = isLight ? 'rgba(2, 132, 199, 0.45)' : 'rgba(56, 189, 248, 0.32)';
+    const rayColor = isLight ? 'rgba(2, 132, 199, 0.15)' : 'rgba(56, 189, 248, 0.1)';
+    const boldRayColor = isLight ? 'rgba(2, 132, 199, 0.38)' : 'rgba(56, 189, 248, 0.28)';
+    const textColor = isLight ? 'rgba(15, 23, 42, 0.75)' : 'rgba(148, 163, 184, 0.65)';
+    const degreeTextColor = isLight ? '#0284c7' : '#38bdf8';
+
+    // 1. Bulatan Jarak Konsentrik (Concentric Distance Rings)
+    for (let r = 1; r <= maxRings; r++) {
+      const radiusPx = r * ringStepNM * ppm;
+      const isBold = (r % 5 === 0);
+
+      ctx.beginPath();
+      ctx.arc(origin.x, origin.y, radiusPx, 0, Math.PI * 2);
+      ctx.strokeStyle = isBold ? boldRingColor : ringColor;
+      ctx.lineWidth = isBold ? 1.5 : 1;
+      ctx.stroke();
+
+      // Label Jarak sepanjang paksi Utara (+Y)
+      if (r <= 12 || isBold) {
+        ctx.font = '10px "JetBrains Mono", monospace';
+        ctx.fillStyle = textColor;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'bottom';
+        const ringValStr = `${(r * ringStepNM).toFixed(r * ringStepNM % 1 === 0 ? 0 : 1)}`;
+        ctx.fillText(ringValStr, origin.x + 4, origin.y - radiusPx - 2);
+      }
+    }
+
+    // 2. Garisan Sudut Radial 360° (Radial Rays setiap 10° & 30°)
+    const maxRadius = maxRings * ringStepNM * ppm;
+    for (let deg = 0; deg < 360; deg += 10) {
+      const rad = (deg - 90) * (Math.PI / 180); // 000° di Utara (Atas)
+      const cosR = Math.cos(rad);
+      const sinR = Math.sin(rad);
+      const isMajor = (deg % 30 === 0);
+
+      ctx.beginPath();
+      ctx.moveTo(origin.x, origin.y);
+      ctx.lineTo(origin.x + maxRadius * cosR, origin.y + maxRadius * sinR);
+      ctx.strokeStyle = isMajor ? boldRayColor : rayColor;
+      ctx.lineWidth = isMajor ? 1.2 : 0.8;
+      ctx.stroke();
+
+      // Label Darjah di bulatan ke-10 atau paling luar yang kelihatan
+      const labelRadius = Math.min(maxRadius, 10 * ringStepNM * ppm);
+      if (isMajor && labelRadius > 40) {
+        const textRadius = labelRadius + 14;
+        const tx = origin.x + textRadius * cosR;
+        const ty = origin.y + textRadius * sinR;
+
+        ctx.font = 'bold 10px "JetBrains Mono", monospace';
+        ctx.fillStyle = degreeTextColor;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const degStr = String(deg).padStart(3, '0') + '°';
+        ctx.fillText(degStr, tx, ty);
+      }
+    }
+
+    // 3. Paksi Utama (000°-180° & 090°-270°)
+    ctx.lineWidth = 1.8;
+    ctx.strokeStyle = isLight ? 'rgba(2, 132, 199, 0.55)' : 'rgba(56, 189, 248, 0.45)';
+    ctx.beginPath();
+    ctx.moveTo(origin.x, 0);
+    ctx.lineTo(origin.x, height);
+    ctx.moveTo(0, origin.y);
+    ctx.lineTo(width, origin.y);
+    ctx.stroke();
+
+    // Label Kardinal Utama
+    ctx.font = 'bold 11px "Outfit", sans-serif';
+    ctx.fillStyle = isLight ? '#0284c7' : '#38bdf8';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText('000° (U)', origin.x, 20);
+    ctx.textBaseline = 'bottom';
+    ctx.fillText('180° (S)', origin.x, height - 12);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('090° (T)', width - 65, Math.max(origin.y - 8, 20));
+    ctx.textAlign = 'right';
+    ctx.fillText('270° (B)', 65, Math.max(origin.y - 8, 20));
+
+    // 4. Penanda Titik Pusat e (Earth / Center)
+    ctx.fillStyle = '#10b981';
+    ctx.beginPath();
+    ctx.arc(origin.x, origin.y, 4.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.font = 'bold 10px "Outfit", sans-serif';
+    ctx.fillStyle = isLight ? '#059669' : '#34d399';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('e (Origin)', origin.x + 8, origin.y + 12);
   }
 
   function drawNauticalGrid(width, height) {
@@ -7180,6 +7314,27 @@
         resetAll();
       }
     });
+
+    // Butang Togol Paparan Graf vs Maneuvering Form
+    if (el.btnViewGraph) {
+      el.btnViewGraph.addEventListener('click', () => {
+        state.vectorViewMode = 'graph';
+        el.btnViewGraph.classList.add('active');
+        if (el.btnViewMoboard) el.btnViewMoboard.classList.remove('active');
+        saveAppState();
+        drawChart();
+      });
+    }
+
+    if (el.btnViewMoboard) {
+      el.btnViewMoboard.addEventListener('click', () => {
+        state.vectorViewMode = 'moboard';
+        el.btnViewMoboard.classList.add('active');
+        if (el.btnViewGraph) el.btnViewGraph.classList.remove('active');
+        saveAppState();
+        drawChart();
+      });
+    }
 
     // Butang Zum & Pan
     el.btnZoomIn.addEventListener('click', () => zoomBy(1.25));
