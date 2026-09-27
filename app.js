@@ -8171,15 +8171,6 @@
       el.datumIntervalInput.addEventListener('change', onIntervalHoursChanged);
     }
 
-    // Feature 5: Floating Map Overlays Toggles
-    document.querySelectorAll('[data-map-layer]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const layerKey = btn.dataset.mapLayer;
-        if (!layerKey || !state.mapOverlays) return;
-        state.mapOverlays[layerKey] = !state.mapOverlays[layerKey];
-        syncMapOverlaysVisibility();
-      });
-    });
 
     // Feature 4: Penjana Waypoint Carian (Turn-by-Turn Waypoints)
     if (el.wpSourceFacility) {
@@ -8975,7 +8966,6 @@
         e.stopPropagation();
         state.mapOverlays.wind = !state.mapOverlays.wind;
         syncMapOverlaysVisibility();
-        updateLeafletMap();
         showToast(state.mapOverlays.wind ? '💨 Vektor Angin (ASW): Papar' : '💨 Vektor Angin (ASW): Sembunyi');
         saveAppState();
       });
@@ -8985,7 +8975,6 @@
         e.stopPropagation();
         state.mapOverlays.current = !state.mapOverlays.current;
         syncMapOverlaysVisibility();
-        updateLeafletMap();
         showToast(state.mapOverlays.current ? '🌊 Vektor Arus (TWC): Papar' : '🌊 Vektor Arus (TWC): Sembunyi');
         saveAppState();
       });
@@ -8995,7 +8984,6 @@
         e.stopPropagation();
         state.mapOverlays.driftTriangle = !state.mapOverlays.driftTriangle;
         syncMapOverlaysVisibility();
-        updateLeafletMap();
         showToast(state.mapOverlays.driftTriangle ? '📐 Segitiga Hanyutan: Papar' : '📐 Segitiga Hanyutan: Sembunyi');
         saveAppState();
       });
@@ -9006,9 +8994,8 @@
         state.mapOverlays.searchTracks = !state.mapOverlays.searchTracks;
         if (state.mapOverlays.searchTracks) {
           plotSearchPatternsOnMap();
-        } else {
-          syncMapOverlaysVisibility();
         }
+        syncMapOverlaysVisibility();
         showToast(state.mapOverlays.searchTracks ? '🧭 Laluan Carian: Papar' : '🧭 Laluan Carian: Sembunyi');
         saveAppState();
       });
@@ -9018,7 +9005,6 @@
         e.stopPropagation();
         state.mapOverlays.datumRadius = !state.mapOverlays.datumRadius;
         syncMapOverlaysVisibility();
-        updateLeafletMap();
         showToast(state.mapOverlays.datumRadius ? '🎯 Radius Carian (R): Papar' : '🎯 Radius Carian (R): Sembunyi');
         saveAppState();
       });
@@ -9287,7 +9273,7 @@
 
   function startWindyFlowEngine() {
     if (!el.windyFlowCanvas) return;
-    el.windyFlowCanvas.style.setProperty('display', 'block', 'important');
+    el.windyFlowCanvas.style.display = 'block';
     resizeWindyFlowCanvas();
     if (state.flowField.particles.length === 0) {
       initWindyParticles();
@@ -9309,6 +9295,7 @@
     if (el.windyFlowCanvas) {
       const ctx = el.windyFlowCanvas.getContext('2d');
       if (ctx) ctx.clearRect(0, 0, el.windyFlowCanvas.width, el.windyFlowCanvas.height);
+      el.windyFlowCanvas.style.removeProperty('display');
       el.windyFlowCanvas.style.display = 'none';
     }
     updateFlowButtonsUI();
@@ -9332,6 +9319,10 @@
 
   function toggleFlowGrid() {
     state.flowField.showGridArrows = !state.flowField.showGridArrows;
+    if (!state.flowField.showGridArrows && el.windyFlowCanvas) {
+      const ctx = el.windyFlowCanvas.getContext('2d');
+      if (ctx) ctx.clearRect(0, 0, el.windyFlowCanvas.width, el.windyFlowCanvas.height);
+    }
     updateFlowButtonsUI();
     showToast(state.flowField.showGridArrows ? '🏹 Grid Anak Panah diaktifkan' : '🏹 Grid Anak Panah dimatikan');
     saveAppState();
@@ -9772,6 +9763,8 @@
     updateCaseInfoUI();
     onWaypointPatternTypeChanged();
     generateSearchPatternWaypoints();
+    updateFlowButtonsUI();
+    syncMapOverlaysVisibility();
     switchTab(state.activeTab || 'vector');
   });
 
