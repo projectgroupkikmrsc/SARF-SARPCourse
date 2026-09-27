@@ -849,9 +849,10 @@
     mapOverlays: {
       wc: true,
       sc: true,
+      leeway: true,
       driftTriangle: true,
-      searchTracks: true,
-      datumRadius: true
+      datumRadius: true,
+      searchTracks: true
     },
 
     // State untuk Animasi Aliran Zarah Ala Windy (Windy-Style Streamlines & Vector Grid)
@@ -910,6 +911,7 @@
   let planningLayerGroup = null;
   let wcLayerGroup = null;
   let scLayerGroup = null;
+  let leewayLayerGroup = null;
   let driftLayerGroup = null;
   let radiusLayerGroup = null;
   let waypointMarkerLayerGroup = null;
@@ -1281,12 +1283,14 @@
 
     // Floating Map Overlays Toolbar (Feature 5) & Windy Flow Controls
     mapOverlayControls: document.getElementById('map-overlay-controls'),
+    mapFlowControls: document.getElementById('map-flow-controls'),
     windyFlowCanvas: document.getElementById('windyFlowCanvas'),
     btnToggleFlowWind: document.getElementById('btn-toggle-flow-wind'),
     btnToggleFlowCurrent: document.getElementById('btn-toggle-flow-current'),
     btnToggleFlowGrid: document.getElementById('btn-toggle-flow-grid'),
     btnToggleWcLayer: document.getElementById('btn-toggle-wc-layer'),
     btnToggleScLayer: document.getElementById('btn-toggle-sc-layer'),
+    btnToggleLeewayLayer: document.getElementById('btn-toggle-leeway-layer'),
     btnToggleDriftLayer: document.getElementById('btn-toggle-drift-layer'),
     btnTogglePatternLayer: document.getElementById('btn-toggle-pattern-layer'),
     btnToggleRadiusLayer: document.getElementById('btn-toggle-radius-layer'),
@@ -3616,6 +3620,7 @@
       vectorLayerGroup = L.layerGroup().addTo(leafletMap);
       wcLayerGroup = L.layerGroup().addTo(leafletMap);
       scLayerGroup = L.layerGroup().addTo(leafletMap);
+      leewayLayerGroup = L.layerGroup().addTo(leafletMap);
       driftLayerGroup = L.layerGroup().addTo(leafletMap);
       radiusLayerGroup = L.layerGroup().addTo(leafletMap);
       planningLayerGroup = L.layerGroup().addTo(leafletMap);
@@ -3663,6 +3668,10 @@
         L.DomEvent.disableClickPropagation(el.mapOverlayControls);
         L.DomEvent.disableScrollPropagation(el.mapOverlayControls);
       }
+      if (el.mapFlowControls && typeof L !== 'undefined' && L.DomEvent) {
+        L.DomEvent.disableClickPropagation(el.mapFlowControls);
+        L.DomEvent.disableScrollPropagation(el.mapFlowControls);
+      }
     } catch (err) {
       console.error('Ralat ketika memulakan Leaflet Map:', err);
     }
@@ -3674,9 +3683,10 @@
     const overlays = state.mapOverlays || {
       wc: true,
       sc: true,
+      leeway: true,
       driftTriangle: true,
-      searchTracks: true,
-      datumRadius: true
+      datumRadius: true,
+      searchTracks: true
     };
 
     // 1. Wind Current (WC) Layer
@@ -3703,7 +3713,19 @@
       el.btnToggleScLayer.classList.toggle('active', !!overlays.sc);
     }
 
-    // 3. Drift Triangle Layer
+    // 3. Leeway Vector Layer
+    if (leewayLayerGroup) {
+      if (overlays.leeway) {
+        if (!leafletMap.hasLayer(leewayLayerGroup)) leafletMap.addLayer(leewayLayerGroup);
+      } else {
+        if (leafletMap.hasLayer(leewayLayerGroup)) leafletMap.removeLayer(leewayLayerGroup);
+      }
+    }
+    if (el.btnToggleLeewayLayer) {
+      el.btnToggleLeewayLayer.classList.toggle('active', !!overlays.leeway);
+    }
+
+    // 4. Drift Triangle Layer (Paduan DL, DR & Marker Datum L/R)
     if (driftLayerGroup) {
       if (overlays.driftTriangle) {
         if (!leafletMap.hasLayer(driftLayerGroup)) leafletMap.addLayer(driftLayerGroup);
@@ -3715,7 +3737,19 @@
       el.btnToggleDriftLayer.classList.toggle('active', !!overlays.driftTriangle);
     }
 
-    // 4. Search Tracks Layer
+    // 5. Radius Layer (DD Line & Bulatan Radius)
+    if (radiusLayerGroup) {
+      if (overlays.datumRadius) {
+        if (!leafletMap.hasLayer(radiusLayerGroup)) leafletMap.addLayer(radiusLayerGroup);
+      } else {
+        if (leafletMap.hasLayer(radiusLayerGroup)) leafletMap.removeLayer(radiusLayerGroup);
+      }
+    }
+    if (el.btnToggleRadiusLayer) {
+      el.btnToggleRadiusLayer.classList.toggle('active', !!overlays.datumRadius);
+    }
+
+    // 6. Search Tracks Layer
     if (planningLayerGroup) {
       if (overlays.searchTracks) {
         if (!leafletMap.hasLayer(planningLayerGroup)) leafletMap.addLayer(planningLayerGroup);
@@ -3733,18 +3767,6 @@
     if (el.btnTogglePatternLayer) {
       el.btnTogglePatternLayer.classList.toggle('active', !!overlays.searchTracks);
     }
-
-    // 5. Radius Layer
-    if (radiusLayerGroup) {
-      if (overlays.datumRadius) {
-        if (!leafletMap.hasLayer(radiusLayerGroup)) leafletMap.addLayer(radiusLayerGroup);
-      } else {
-        if (leafletMap.hasLayer(radiusLayerGroup)) leafletMap.removeLayer(radiusLayerGroup);
-      }
-    }
-    if (el.btnToggleRadiusLayer) {
-      el.btnToggleRadiusLayer.classList.toggle('active', !!overlays.datumRadius);
-    }
   }
 
   function updateLeafletMap() {
@@ -3757,6 +3779,7 @@
     vectorLayerGroup.clearLayers();
     if (wcLayerGroup) wcLayerGroup.clearLayers();
     if (scLayerGroup) scLayerGroup.clearLayers();
+    if (leewayLayerGroup) leewayLayerGroup.clearLayers();
     if (driftLayerGroup) driftLayerGroup.clearLayers();
     if (radiusLayerGroup) radiusLayerGroup.clearLayers();
 
@@ -3982,7 +4005,7 @@
           color: '#38bdf8',
           weight: 3.5,
           opacity: 0.95
-        }).addTo(driftLayerGroup);
+        }).addTo(leewayLayerGroup);
 
         leftLeewayLine.bindTooltip(`🌬️ + LL (Leeway Kiri): ${formatNauticalBearing(fd.leftTrack)} | ${fd.leewayDist.toFixed(2)} NM`, {
           className: 'nautical-map-tooltip nautical-drift-tooltip'
@@ -3993,7 +4016,7 @@
           color: '#a855f7',
           weight: 3.5,
           opacity: 0.95
-        }).addTo(driftLayerGroup);
+        }).addTo(leewayLayerGroup);
 
         rightLeewayLine.bindTooltip(`🌬️ + LR (Leeway Kanan): ${formatNauticalBearing(fd.rightTrack)} | ${fd.leewayDist.toFixed(2)} NM`, {
           className: 'nautical-map-tooltip nautical-drift-tooltip'
@@ -4132,7 +4155,7 @@
             color: '#38bdf8',
             weight: 3.5,
             opacity: 0.95
-          }).addTo(driftLayerGroup);
+          }).addTo(leewayLayerGroup);
 
           leewayLine.bindTooltip(`🌬️ + Leeway: ${formatNauticalBearing(fd.downwindBearing)} | ${fd.leewayDist.toFixed(2)} NM`, {
             className: 'nautical-map-tooltip nautical-drift-tooltip'
@@ -6709,6 +6732,7 @@
       if (el.mcCanvasOverlay) el.mcCanvasOverlay.style.display = 'none';
       if (el.mcTimelineBar) el.mcTimelineBar.style.display = 'none';
       if (el.mapOverlayControls) el.mapOverlayControls.style.display = 'none';
+      if (el.mapFlowControls) el.mapFlowControls.style.display = 'none';
       el.gridControls.style.display = 'flex';
       el.compassBadge.style.display = 'block';
 
@@ -6727,6 +6751,7 @@
       el.mapContainer.style.display = 'block';
       if (el.mcTimelineBar) el.mcTimelineBar.style.display = 'flex';
       if (el.mapOverlayControls) el.mapOverlayControls.style.display = 'block';
+      if (el.mapFlowControls) el.mapFlowControls.style.display = 'flex';
       el.gridControls.style.display = 'none';
       el.compassBadge.style.display = 'none';
 
@@ -6913,9 +6938,10 @@
         state.mapOverlays = Object.assign(state.mapOverlays, {
           wc: data.mapOverlays.wc !== undefined ? data.mapOverlays.wc : (data.mapOverlays.wind !== undefined ? data.mapOverlays.wind : true),
           sc: data.mapOverlays.sc !== undefined ? data.mapOverlays.sc : (data.mapOverlays.current !== undefined ? data.mapOverlays.current : true),
+          leeway: data.mapOverlays.leeway !== undefined ? data.mapOverlays.leeway : true,
           driftTriangle: data.mapOverlays.driftTriangle !== undefined ? data.mapOverlays.driftTriangle : true,
-          searchTracks: data.mapOverlays.searchTracks !== undefined ? data.mapOverlays.searchTracks : true,
-          datumRadius: data.mapOverlays.datumRadius !== undefined ? data.mapOverlays.datumRadius : true
+          datumRadius: data.mapOverlays.datumRadius !== undefined ? data.mapOverlays.datumRadius : true,
+          searchTracks: data.mapOverlays.searchTracks !== undefined ? data.mapOverlays.searchTracks : true
         });
       }
       if (data.flowField) {
@@ -8945,6 +8971,15 @@
         state.mapOverlays.sc = !state.mapOverlays.sc;
         syncMapOverlaysVisibility();
         showToast(state.mapOverlays.sc ? '🌊 Vektor Sea Current (SC): Papar' : '🌊 Vektor Sea Current (SC): Sembunyi');
+        saveAppState();
+      });
+    }
+    if (el.btnToggleLeewayLayer) {
+      el.btnToggleLeewayLayer.addEventListener('click', (e) => {
+        e.stopPropagation();
+        state.mapOverlays.leeway = !state.mapOverlays.leeway;
+        syncMapOverlaysVisibility();
+        showToast(state.mapOverlays.leeway ? '🌬️ Vektor Leeway: Papar' : '🌬️ Vektor Leeway: Sembunyi');
         saveAppState();
       });
     }

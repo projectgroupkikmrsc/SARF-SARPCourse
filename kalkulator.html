@@ -11,7 +11,7 @@
   <!-- Leaflet.js CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
   
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=2.1">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -3239,22 +3239,9 @@
           <!-- Mod 2 Overlay: Monte Carlo Particle Simulation Canvas -->
           <canvas id="mcCanvasOverlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 450; display: none;"></canvas>
 
-          <!-- Floating Map Layers & Vector Overlays Toggle Bar (Aktif dalam Mod Peta) -->
+          <!-- Floating Map Layers & Vector Overlays Toggle Bar (Atas Kiri Peta) -->
           <div class="map-overlay-layer-controls" id="map-overlay-controls" style="display: none;">
             <div class="map-overlay-btn-group">
-              <button type="button" class="map-layer-pill active" id="btn-toggle-flow-wind" data-flow-mode="wind" title="Animasi Aliran Zarah Angin (Windy Streamlines)">
-                <span class="pill-icon">💨</span>
-                <span class="pill-label">Aliran Angin</span>
-              </button>
-              <button type="button" class="map-layer-pill" id="btn-toggle-flow-current" data-flow-mode="current" title="Animasi Aliran Zarah Arus Laut (Ocean Current Streamlines)">
-                <span class="pill-icon">🌊</span>
-                <span class="pill-label">Aliran Arus</span>
-              </button>
-              <button type="button" class="map-layer-pill active" id="btn-toggle-flow-grid" data-flow-mode="grid" title="Grid Anak Panah Vektor &amp; Kelajuan (Velocity Vector Grid)">
-                <span class="pill-icon">🏹</span>
-                <span class="pill-label">Grid Panah</span>
-              </button>
-              <span style="width: 1px; height: 16px; background: var(--border-color); margin: 0 2px;"></span>
               <button type="button" class="map-layer-pill active" id="btn-toggle-wc-layer" data-map-layer="wc" title="Togol Vektor Wind Current (WC)">
                 <span class="pill-icon">💨</span>
                 <span class="pill-label">Vektor WC</span>
@@ -3263,17 +3250,36 @@
                 <span class="pill-icon">🌊</span>
                 <span class="pill-label">Vektor SC</span>
               </button>
-              <button type="button" class="map-layer-pill active" id="btn-toggle-drift-layer" data-map-layer="driftTriangle" title="Togol Segitiga Hanyutan (Drift Triangle)">
+              <button type="button" class="map-layer-pill active" id="btn-toggle-leeway-layer" data-map-layer="leeway" title="Togol Vektor Hanyutan Angin (Leeway)">
+                <span class="pill-icon">🌬️</span>
+                <span class="pill-label">Vektor Leeway</span>
+              </button>
+              <button type="button" class="map-layer-pill active" id="btn-toggle-drift-layer" data-map-layer="driftTriangle" title="Togol Segitiga Hanyutan (Paduan TWC + Leeway)">
                 <span class="pill-icon">📐</span>
                 <span class="pill-label">Segitiga Hanyutan</span>
+              </button>
+              <button type="button" class="map-layer-pill active" id="btn-toggle-radius-layer" data-map-layer="datumRadius" title="Togol Radius &amp; Garisan DD (R / At)">
+                <span class="pill-icon">🎯</span>
+                <span class="pill-label">Radius (R)</span>
               </button>
               <button type="button" class="map-layer-pill active" id="btn-toggle-pattern-layer" data-map-layer="searchTracks" title="Togol Corak Laluan Carian &amp; Waypoints">
                 <span class="pill-icon">🧭</span>
                 <span class="pill-label">Laluan Carian</span>
               </button>
-              <button type="button" class="map-layer-pill active" id="btn-toggle-radius-layer" data-map-layer="datumRadius" title="Togol Radius &amp; Kawasan Carian (R / At)">
-                <span class="pill-icon">🎯</span>
-                <span class="pill-label">Radius (R)</span>
+            </div>
+          </div>
+
+          <!-- Floating Flow Controls (Menegak Bawah Butang Zoom - Kanan) -->
+          <div class="map-flow-vertical-controls" id="map-flow-controls" style="display: none;">
+            <div class="map-flow-vertical-btn-group">
+              <button type="button" class="map-flow-icon-btn active" id="btn-toggle-flow-wind" data-flow-mode="wind" title="Animasi Aliran Zarah Angin (Wind Streamlines)">
+                💨
+              </button>
+              <button type="button" class="map-flow-icon-btn" id="btn-toggle-flow-current" data-flow-mode="current" title="Animasi Aliran Zarah Arus Laut (Ocean Current Streamlines)">
+                🌊
+              </button>
+              <button type="button" class="map-flow-icon-btn active" id="btn-toggle-flow-grid" data-flow-mode="grid" title="Grid Anak Panah Kelajuan (Velocity Grid)">
+                🏹
               </button>
             </div>
           </div>
@@ -3396,7 +3402,7 @@
     }
   </script>
   <!-- Script Utama -->
-  <script src="app.js?v=2.8"></script>
+  <script src="app.js?v=2.9"></script>
   <script>
     (function() {
       try {
