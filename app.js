@@ -3657,6 +3657,12 @@
           resizeWindyFlowCanvas();
         }
       });
+
+      // Halang klik & skrol pada butang floating toolbar daripada menggerakkan peta Leaflet
+      if (el.mapOverlayControls && typeof L !== 'undefined' && L.DomEvent) {
+        L.DomEvent.disableClickPropagation(el.mapOverlayControls);
+        L.DomEvent.disableScrollPropagation(el.mapOverlayControls);
+      }
     } catch (err) {
       console.error('Ralat ketika memulakan Leaflet Map:', err);
     }
@@ -3744,6 +3750,10 @@
   function updateLeafletMap() {
     if (!leafletMap || !vectorLayerGroup) return;
 
+    if (!state.finalDatum) {
+      calculateFinalDatum(false);
+    }
+
     vectorLayerGroup.clearLayers();
     if (windLayerGroup) windLayerGroup.clearLayers();
     if (currentLayerGroup) currentLayerGroup.clearLayers();
@@ -3781,14 +3791,15 @@
     `);
 
     // 2. Vektor Angin (ASW) Overlay (Feature 5)
-    let aswSpeed = 0;
-    let aswBearing = 0;
-    if (state.aswResultant && state.aswResultant.speed > 0) {
-      aswSpeed = state.aswResultant.speed;
-      aswBearing = state.aswResultant.bearing;
-    } else if (state.aswVectors && state.aswVectors.length > 0) {
+    let aswSpeed = state.aswResultant?.avgSpeed || state.aswResultant?.speed || 0;
+    let aswBearing = state.aswResultant?.bearing || 0;
+    if (!aswSpeed && state.aswVectors && state.aswVectors.length > 0) {
       aswSpeed = state.aswVectors[0].speed;
       aswBearing = state.aswVectors[0].bearing;
+    }
+    if (!aswSpeed && el.aswSpeedInput) {
+      aswSpeed = parseFloat(el.aswSpeedInput.value) || 0;
+      aswBearing = parseFloat(el.aswBearingInput?.value) || 0;
     }
 
     if (aswSpeed > 0 && windLayerGroup) {
@@ -9159,7 +9170,7 @@
   }
 
   function renderWindyFlowLoop(timestamp) {
-    if (!state.flowField.active || state.flowField.mode === 'none' || state.displayMode !== 'map' || state.activeTab === 'vector') {
+    if (!state.flowField.active || state.flowField.mode === 'none' || state.displayMode !== 'map') {
       if (el.windyFlowCanvas) {
         const ctx = el.windyFlowCanvas.getContext('2d');
         if (ctx) ctx.clearRect(0, 0, el.windyFlowCanvas.width, el.windyFlowCanvas.height);
@@ -9497,7 +9508,7 @@
   }
 
   function renderMonteCarloFrame() {
-    if (!state.monteCarlo.isActive || !state.monteCarlo.isVisible || !el.mcCanvasOverlay || !leafletMap || state.displayMode !== 'map' || state.activeTab === 'vector') {
+    if (!state.monteCarlo.isActive || !state.monteCarlo.isVisible || !el.mcCanvasOverlay || !leafletMap || state.displayMode !== 'map') {
       if (el.mcCanvasOverlay) {
         const mcCtx = el.mcCanvasOverlay.getContext('2d');
         if (mcCtx) mcCtx.clearRect(0, 0, el.mcCanvasOverlay.width, el.mcCanvasOverlay.height);

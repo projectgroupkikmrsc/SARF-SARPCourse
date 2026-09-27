@@ -2849,7 +2849,7 @@ body {
   position: absolute;
   top: 12px;
   left: 14px;
-  z-index: 500;
+  z-index: 1200;
   pointer-events: auto;
   max-width: calc(100% - 70px);
 }
