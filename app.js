@@ -5077,19 +5077,26 @@
   function renderMetoceanSummaryModal(data) {
     if (!el.metoceanModalBody) return;
 
-    const driftStr = state.finalDatum
-      ? (state.finalDatum.divergence > 0
-          ? `${state.finalDatum.driftDistL.toFixed(2)} NM (Kiri) | ${state.finalDatum.driftDistR.toFixed(2)} NM (Kanan)`
-          : `${state.finalDatum.driftDist.toFixed(2)} NM`)
-      : '---';
+    let driftStr = '0.00 NM';
+    if (state.finalDatum) {
+      const fd = state.finalDatum;
+      if (fd.divergence > 0 && typeof fd.totalDriftDistL === 'number' && typeof fd.totalDriftDistR === 'number') {
+        driftStr = `${fd.totalDriftDistL.toFixed(2)} NM (Kiri) | ${fd.totalDriftDistR.toFixed(2)} NM (Kanan)`;
+      } else if (typeof fd.totalDriftDist === 'number') {
+        driftStr = `${fd.totalDriftDist.toFixed(2)} NM`;
+      }
+    }
 
-    const wcStr = state.wcVector
+    const wcStr = state.wcVector && typeof state.wcVector.speed === 'number'
       ? `${formatNauticalBearing(state.wcVector.bearing)} @ ${state.wcVector.speed.toFixed(2)} kts`
       : '---';
 
-    const currentStr = data.hasMarineCurrent
+    const currentStr = data.hasMarineCurrent && typeof data.avgCurrentSpeed === 'number'
       ? `${formatNauticalBearing(data.avgCurrentDir)} @ ${data.avgCurrentSpeed.toFixed(2)} kts`
       : '0.00 kts (Pesisir/Tasik)';
+
+    const totalWindHoursStr = (typeof data.totalWindHours === 'number' ? data.totalWindHours : 1.0).toFixed(1);
+    const avgWindSpeedStr = (typeof data.avgWindSpeed === 'number' ? data.avgWindSpeed : 0.0).toFixed(1);
 
     const html = `
       <div style="display: flex; flex-direction: column; gap: 0.85rem;">
@@ -5098,15 +5105,15 @@
             <span style="color: var(--text-muted);">Lokasi Kejadian:</span> <strong>${formatCoordinate(data.lat, true)} | ${formatCoordinate(data.lon, false)}</strong>
           </div>
           <div>
-            <span style="color: var(--text-muted);">Sela Waktu:</span> <strong>${data.totalWindHours.toFixed(1)} Jam</strong>
+            <span style="color: var(--text-muted);">Sela Waktu:</span> <strong>${totalWindHoursStr} Jam</strong>
           </div>
         </div>
 
         <div class="metocean-stat-grid">
           <div class="metocean-stat-card">
             <div class="metocean-stat-title">Purata Angin (ASW)</div>
-            <div class="metocean-stat-value">${formatNauticalBearing(data.avgWindDir)} @ ${data.avgWindSpeed.toFixed(1)} kts</div>
-            <div class="metocean-stat-desc">${data.windHours.length} cerapan data angin 10m</div>
+            <div class="metocean-stat-value">${formatNauticalBearing(data.avgWindDir)} @ ${avgWindSpeedStr} kts</div>
+            <div class="metocean-stat-desc">${(data.windHours || []).length} cerapan data angin 10m</div>
           </div>
           <div class="metocean-stat-card">
             <div class="metocean-stat-title">Arus Angin (WC)</div>
@@ -5138,13 +5145,15 @@
                 </tr>
               </thead>
               <tbody>
-                ${data.windHours.map(w => `
+                ${(data.windHours || []).map(w => {
+                  const spdVal = typeof w.speed === 'number' ? w.speed.toFixed(1) : '0.0';
+                  return `
                   <tr>
-                    <td>${w.time.replace('T', ' ')}</td>
+                    <td>${String(w.time || '').replace('T', ' ')}</td>
                     <td style="color: #38bdf8; font-weight: 600;">${formatNauticalBearing(w.direction)}</td>
-                    <td style="font-weight: 700;">${w.speed.toFixed(1)} kts</td>
+                    <td style="font-weight: 700;">${spdVal} kts</td>
                   </tr>
-                `).join('')}
+                `;}).join('')}
               </tbody>
             </table>
           </div>
@@ -5183,12 +5192,12 @@
   }
 
   async function fetchMarineMetoceanData() {
-    const lat = parseCoordinate(el.originLatInput ? el.originLatInput.value : '', true);
-    const lon = parseCoordinate(el.originLonInput ? el.originLonInput.value : '', false);
+    let lat = parseCoordinate(el.originLatInput ? el.originLatInput.value : '', true);
+    let lon = parseCoordinate(el.originLonInput ? el.originLonInput.value : '', false);
 
     if (isNaN(lat) || isNaN(lon)) {
-      alert('Sila masukkan koordinat Latitud dan Longitud kejadian yang sah sebelum memuat turun data satelit.');
-      return;
+      lat = state.originGeo.lat || DEFAULT_ORIGIN_GEO.lat;
+      lon = state.originGeo.lon || DEFAULT_ORIGIN_GEO.lon;
     }
 
     const distressVal = el.distressDateTimeInput ? el.distressDateTimeInput.value : '';
