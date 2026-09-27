@@ -3852,7 +3852,7 @@
             color: '#0284c7',
             weight: 3.5,
             opacity: 0.95
-          }).addTo(currentLayerGroup || vectorLayerGroup);
+          }).addTo(currentLayerGroup);
 
           const midLat = (currPt.lat + nextPt.lat) / 2;
           const midLon = (currPt.lon + nextPt.lon) / 2;
@@ -3881,7 +3881,7 @@
             weight: 1.5,
             opacity: 1,
             fillOpacity: 0.9
-          }).addTo(currentLayerGroup || vectorLayerGroup);
+          }).addTo(currentLayerGroup);
           wpDot.bindTooltip('WP1 (Hujung WC)', { className: 'nautical-map-tooltip' });
 
           currPt = nextPt;
@@ -3903,7 +3903,7 @@
               color: legColor,
               weight: 3.5,
               opacity: 0.95
-            }).addTo(currentLayerGroup || vectorLayerGroup);
+            }).addTo(currentLayerGroup);
 
             const vecLabel = `${legNum}. ${v.type || 'SC'}: ${formatNauticalBearing(v.bearing)} | ${v.speed.toFixed(2)} kts (${scLegDist.toFixed(2)} NM)`;
             vecLine.bindTooltip(vecLabel, {
@@ -3929,7 +3929,7 @@
               weight: 1.5,
               opacity: 1,
               fillOpacity: 0.9
-            }).addTo(currentLayerGroup || vectorLayerGroup);
+            }).addTo(currentLayerGroup);
             wpDot.bindTooltip(`WP${legNum} (Hujung ${v.type || 'SC'})`, { className: 'nautical-map-tooltip' });
 
             currPt = nextPt;
@@ -3943,7 +3943,7 @@
             weight: 2,
             opacity: 0.75,
             dashArray: '5, 5'
-          }).addTo(currentLayerGroup || vectorLayerGroup);
+          }).addTo(currentLayerGroup);
 
           twcResLine.bindTooltip(`🎯 Paduan TWC: ${formatNauticalBearing(fd.scBearing)} | ${(fd.twcDist || fd.scDist).toFixed(2)} NM`, {
             className: 'nautical-map-tooltip nautical-current-tooltip'
@@ -3959,7 +3959,7 @@
           color: '#0284c7',
           weight: 3.5,
           opacity: 0.95
-        }).addTo(currentLayerGroup || vectorLayerGroup);
+        }).addTo(currentLayerGroup);
 
         obsLine.bindTooltip(`🌊 Observed TWC (${obs.source || 'Cerapan'}): ${formatNauticalBearing(obs.bearing)} | ${obs.distance.toFixed(2)} NM`, {
           className: 'nautical-map-tooltip nautical-current-tooltip'
@@ -3990,7 +3990,7 @@
           weight: 2.5,
           opacity: 1,
           fillOpacity: 1
-        }).addTo(vectorLayerGroup);
+        }).addTo(currentLayerGroup);
 
         twcEndMarker.bindTooltip('📍 Titik Hujung TWC (Mula Leeway)', {
           direction: 'top',
@@ -4019,7 +4019,7 @@
           color: '#38bdf8',
           weight: 3.5,
           opacity: 0.95
-        }).addTo(driftLayerGroup || vectorLayerGroup);
+        }).addTo(driftLayerGroup);
 
         leftLeewayLine.bindTooltip(`🌬️ + LL (Leeway Kiri): ${formatNauticalBearing(fd.leftTrack)} | ${fd.leewayDist.toFixed(2)} NM`, {
           className: 'nautical-map-tooltip nautical-drift-tooltip'
@@ -4030,7 +4030,7 @@
           color: '#a855f7',
           weight: 3.5,
           opacity: 0.95
-        }).addTo(driftLayerGroup || vectorLayerGroup);
+        }).addTo(driftLayerGroup);
 
         rightLeewayLine.bindTooltip(`🌬️ + LR (Leeway Kanan): ${formatNauticalBearing(fd.rightTrack)} | ${fd.leewayDist.toFixed(2)} NM`, {
           className: 'nautical-map-tooltip nautical-drift-tooltip'
@@ -4042,7 +4042,7 @@
           weight: 2.5,
           opacity: 0.85,
           dashArray: '6, 6'
-        }).addTo(driftLayerGroup || vectorLayerGroup);
+        }).addTo(driftLayerGroup);
 
         totalTrackLineL.bindTooltip(`🎯 Paduan DL (TWC + LL): ${formatNauticalBearing(fd.totalDriftBearingL)} | ${(fd.totalDriftDistL || 0).toFixed(2)} NM`, {
           className: 'nautical-map-tooltip'
@@ -4054,7 +4054,7 @@
           weight: 2.5,
           opacity: 0.85,
           dashArray: '6, 6'
-        }).addTo(driftLayerGroup || vectorLayerGroup);
+        }).addTo(driftLayerGroup);
 
         totalTrackLineR.bindTooltip(`🎯 Paduan DR (TWC + LR): ${formatNauticalBearing(fd.totalDriftBearingR)} | ${(fd.totalDriftDistR || 0).toFixed(2)} NM`, {
           className: 'nautical-map-tooltip'
@@ -4067,7 +4067,7 @@
           weight: 3.5,
           opacity: 0.95,
           dashArray: '5, 5'
-        }).addTo(radiusLayerGroup || vectorLayerGroup);
+        }).addTo(radiusLayerGroup);
 
         ddLine.bindTooltip(`↔️ DD = ${ddDist.toFixed(2)} NM (≈ ${(ddDist * 1.852).toFixed(2)} km)`, {
           permanent: false,
@@ -4107,7 +4107,7 @@
           weight: 2.5,
           opacity: 1,
           fillOpacity: 0.95
-        }).addTo(vectorLayerGroup);
+        }).addTo(driftLayerGroup);
 
         datumLMarker.bindTooltip('📍 2. Datum L (Kiri)', {
           permanent: false,
@@ -4133,7 +4133,7 @@
           weight: 2.5,
           opacity: 1,
           fillOpacity: 0.95
-        }).addTo(vectorLayerGroup);
+        }).addTo(driftLayerGroup);
 
         datumRMarker.bindTooltip('📍 3. Datum R (Kanan)', {
           permanent: false,
@@ -4169,7 +4169,7 @@
             color: '#38bdf8',
             weight: 3.5,
             opacity: 0.95
-          }).addTo(driftLayerGroup || vectorLayerGroup);
+          }).addTo(driftLayerGroup);
 
           leewayLine.bindTooltip(`🌬️ + Leeway: ${formatNauticalBearing(fd.downwindBearing)} | ${fd.leewayDist.toFixed(2)} NM`, {
             className: 'nautical-map-tooltip nautical-drift-tooltip'
@@ -4181,7 +4181,7 @@
           weight: 2.5,
           opacity: 0.85,
           dashArray: '6, 6'
-        }).addTo(driftLayerGroup || vectorLayerGroup);
+        }).addTo(driftLayerGroup);
 
         if (radiusLayerGroup && fd.searchRadius > 0) {
           const rMeters = fd.searchRadius * 1852;
@@ -4203,7 +4203,7 @@
           weight: 2.5,
           opacity: 1,
           fillOpacity: 0.95
-        }).addTo(vectorLayerGroup);
+        }).addTo(driftLayerGroup);
 
         singleDatumMarker.bindPopup(`
           <div style="font-family: 'Outfit', sans-serif; min-width: 200px;">
