@@ -2859,8 +2859,8 @@ body {
   position: absolute;
   top: 12px;
   left: 14px;
-  z-index: 1200;
-  pointer-events: auto;
+  z-index: 2000;
+  pointer-events: auto !important;
   max-width: calc(100% - 70px);
 }
 
@@ -2876,6 +2876,7 @@ body {
   border-radius: var(--radius-md);
   border: 1px solid var(--border-color);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  pointer-events: auto !important;
 }
 
 .map-layer-pill {
@@ -2892,6 +2893,7 @@ body {
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   user-select: none;
+  pointer-events: auto !important;
 }
 
 .map-layer-pill:hover {
@@ -2939,10 +2941,10 @@ body {
   position: absolute;
   top: 72px;
   right: 10px;
-  z-index: 1000;
+  z-index: 2000;
   display: flex;
   flex-direction: column;
-  pointer-events: auto;
+  pointer-events: auto !important;
 }
 
 .map-flow-vertical-btn-group {
@@ -2957,6 +2959,7 @@ body {
   border-radius: var(--radius-md);
   border: 1px solid var(--border-color);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  pointer-events: auto !important;
 }
 
 .map-flow-icon-btn {
@@ -2973,6 +2976,7 @@ body {
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   user-select: none;
+  pointer-events: auto !important;
 }
 
 .map-flow-icon-btn:hover {

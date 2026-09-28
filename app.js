@@ -3853,14 +3853,16 @@
         }
       });
 
-      // Halang klik & skrol pada butang floating toolbar daripada menggerakkan peta Leaflet
-      if (el.mapOverlayControls && typeof L !== 'undefined' && L.DomEvent) {
-        L.DomEvent.disableClickPropagation(el.mapOverlayControls);
-        L.DomEvent.disableScrollPropagation(el.mapOverlayControls);
+      // Halang seretan (drag) pada floating toolbar daripada menggerakkan peta Leaflet
+      if (el.mapOverlayControls) {
+        ['mousedown', 'touchstart', 'dblclick'].forEach(evt => {
+          el.mapOverlayControls.addEventListener(evt, e => e.stopPropagation());
+        });
       }
-      if (el.mapFlowControls && typeof L !== 'undefined' && L.DomEvent) {
-        L.DomEvent.disableClickPropagation(el.mapFlowControls);
-        L.DomEvent.disableScrollPropagation(el.mapFlowControls);
+      if (el.mapFlowControls) {
+        ['mousedown', 'touchstart', 'dblclick'].forEach(evt => {
+          el.mapFlowControls.addEventListener(evt, e => e.stopPropagation());
+        });
       }
     } catch (err) {
       console.error('Ralat ketika memulakan Leaflet Map:', err);
@@ -10290,82 +10292,34 @@
     });
 
     // Butang Floating Overlays: Windy Particle Flow & Vector Overlays (Feature 5)
-    if (el.btnToggleFlowWind) {
-      el.btnToggleFlowWind.addEventListener('click', (e) => {
+    document.querySelectorAll('.map-flow-icon-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
         e.stopPropagation();
-        setFlowMode('wind');
-      });
-    }
-    if (el.btnToggleFlowCurrent) {
-      el.btnToggleFlowCurrent.addEventListener('click', (e) => {
-        e.stopPropagation();
-        setFlowMode('current');
-      });
-    }
-    if (el.btnToggleFlowGrid) {
-      el.btnToggleFlowGrid.addEventListener('click', (e) => {
-        e.stopPropagation();
-        toggleFlowGrid();
-      });
-    }
-
-    if (el.btnToggleWcLayer) {
-      el.btnToggleWcLayer.addEventListener('click', (e) => {
-        e.stopPropagation();
-        state.mapOverlays.wc = !state.mapOverlays.wc;
-        syncMapOverlaysVisibility();
-        showToast(state.mapOverlays.wc ? '💨 Vektor Wind Current (WC): Papar' : '💨 Vektor Wind Current (WC): Sembunyi');
-        saveAppState();
-      });
-    }
-    if (el.btnToggleScLayer) {
-      el.btnToggleScLayer.addEventListener('click', (e) => {
-        e.stopPropagation();
-        state.mapOverlays.sc = !state.mapOverlays.sc;
-        syncMapOverlaysVisibility();
-        showToast(state.mapOverlays.sc ? '🌊 Vektor Sea Current (SC): Papar' : '🌊 Vektor Sea Current (SC): Sembunyi');
-        saveAppState();
-      });
-    }
-    if (el.btnToggleLeewayLayer) {
-      el.btnToggleLeewayLayer.addEventListener('click', (e) => {
-        e.stopPropagation();
-        state.mapOverlays.leeway = !state.mapOverlays.leeway;
-        syncMapOverlaysVisibility();
-        showToast(state.mapOverlays.leeway ? '🌬️ Vektor Leeway: Papar' : '🌬️ Vektor Leeway: Sembunyi');
-        saveAppState();
-      });
-    }
-    if (el.btnToggleDriftLayer) {
-      el.btnToggleDriftLayer.addEventListener('click', (e) => {
-        e.stopPropagation();
-        state.mapOverlays.driftTriangle = !state.mapOverlays.driftTriangle;
-        syncMapOverlaysVisibility();
-        showToast(state.mapOverlays.driftTriangle ? '📐 Segitiga Hanyutan: Papar' : '📐 Segitiga Hanyutan: Sembunyi');
-        saveAppState();
-      });
-    }
-    if (el.btnTogglePatternLayer) {
-      el.btnTogglePatternLayer.addEventListener('click', (e) => {
-        e.stopPropagation();
-        state.mapOverlays.searchTracks = !state.mapOverlays.searchTracks;
-        if (state.mapOverlays.searchTracks) {
-          plotSearchPatternsOnMap();
+        const mode = btn.dataset.flowMode;
+        if (mode === 'grid') {
+          toggleFlowGrid();
+        } else if (mode === 'wind' || mode === 'current') {
+          setFlowMode(mode);
         }
-        syncMapOverlaysVisibility();
-        showToast(state.mapOverlays.searchTracks ? '🧭 Laluan Carian: Papar' : '🧭 Laluan Carian: Sembunyi');
-        saveAppState();
       });
-    }
-    if (el.btnToggleRadiusLayer) {
-      el.btnToggleRadiusLayer.addEventListener('click', (e) => {
+    });
+
+    document.querySelectorAll('.map-layer-pill').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
         e.stopPropagation();
-        state.mapOverlays.datumRadius = !state.mapOverlays.datumRadius;
-        syncMapOverlaysVisibility();
-        showToast(state.mapOverlays.datumRadius ? '🎯 Radius Carian (R): Papar' : '🎯 Radius Carian (R): Sembunyi');
-        saveAppState();
+        const layer = btn.dataset.mapLayer;
+        if (layer && state.mapOverlays) {
+          state.mapOverlays[layer] = !state.mapOverlays[layer];
+          if (layer === 'searchTracks' && state.mapOverlays.searchTracks) {
+            plotSearchPatternsOnMap();
+          }
+          syncMapOverlaysVisibility();
+          saveAppState();
+        }
       });
-    }
+    });
 
     window.addEventListener('resize', () => {
       if (state.displayMode === 'grid') {
