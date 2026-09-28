@@ -7692,6 +7692,12 @@
       el.chartTipText.textContent = 'Tip: Seret tetikus untuk gerakkan carta • Skrol untuk Zum';
       stopWindyFlowEngine();
       resizeCanvas();
+      requestAnimationFrame(() => {
+        if (state.displayMode === 'grid') resizeCanvas();
+      });
+      setTimeout(() => {
+        if (state.displayMode === 'grid') resizeCanvas();
+      }, 50);
     } else {
       if (el.viewModeTitle) el.viewModeTitle.textContent = 'Peta Laut & Terestrial (OpenSeaMap)';
       if (el.viewModeIcon) {
@@ -8388,7 +8394,14 @@
 
   function resizeCanvas() {
     if (state.displayMode !== 'grid') return;
+    if (!el.canvasWrapper || !el.canvas) return;
     const rect = el.canvasWrapper.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) {
+      requestAnimationFrame(() => {
+        if (state.displayMode === 'grid') resizeCanvas();
+      });
+      return;
+    }
     const dpr = window.devicePixelRatio || 1;
 
     el.canvas.width = rect.width * dpr;
@@ -10023,6 +10036,20 @@
         }
       }
     });
+
+    // Dynamic Observer untuk Canvas Wrapper (Auto-render bila layout siap)
+    if (window.ResizeObserver && el.canvasWrapper) {
+      const ro = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          if (entry.contentRect.width > 0 && entry.contentRect.height > 0) {
+            if (state.displayMode === 'grid') {
+              resizeCanvas();
+            }
+          }
+        }
+      });
+      ro.observe(el.canvasWrapper);
+    }
   }
 
   // =========================================================================
@@ -11016,6 +11043,23 @@
     updateFlowButtonsUI();
     syncMapOverlaysVisibility();
     switchTab(state.activeTab || 'vector');
+
+    // Jaminan render graf awal pada permulaan muat turun halaman
+    requestAnimationFrame(() => {
+      if (state.displayMode === 'grid') {
+        resizeCanvas();
+      }
+    });
+    setTimeout(() => {
+      if (state.displayMode === 'grid') {
+        resizeCanvas();
+      }
+    }, 60);
+    setTimeout(() => {
+      if (state.displayMode === 'grid') {
+        resizeCanvas();
+      }
+    }, 150);
   });
 
 })();
