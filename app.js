@@ -8471,10 +8471,20 @@
     let height = rect.height;
 
     if (width <= 0 || height <= 0) {
-      width = el.canvas.clientWidth || (el.canvas.width / (window.devicePixelRatio || 1)) || 800;
-      height = el.canvas.clientHeight || (el.canvas.height / (window.devicePixelRatio || 1)) || 600;
+      width = el.canvasWrapper.clientWidth || el.canvas.clientWidth || 800;
+      height = el.canvasWrapper.clientHeight || el.canvas.clientHeight || 600;
     }
     if (width <= 0 || height <= 0) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    const targetW = Math.round(width * dpr);
+    const targetH = Math.round(height * dpr);
+
+    if (el.canvas.width !== targetW || el.canvas.height !== targetH) {
+      el.canvas.width = targetW;
+      el.canvas.height = targetH;
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     if (typeof state.view.zoom !== 'number' || isNaN(state.view.zoom) || state.view.zoom <= 0.05) {
       state.view.zoom = 1.0;
