@@ -5307,6 +5307,21 @@
 
   let currentTidalCalculation = null;
 
+  function calculateHaversineDistance(lat1, lon1, lat2, lon2) {
+    if (isNaN(lat1) || isNaN(lon1) || isNaN(lat2) || isNaN(lon2)) return Infinity;
+    const R = 3440.065; // Nautical miles
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+
   function findNearestTidalStation(targetLat, targetLon) {
     if (isNaN(targetLat) || isNaN(targetLon)) return { station: MALAYSIA_TIDAL_STATIONS[0], distanceNM: 0 };
     let nearest = MALAYSIA_TIDAL_STATIONS[0];
@@ -5390,10 +5405,18 @@
   }
 
   function openTidalModal() {
-    if (!el.modalTidalCurrent) return;
-    renderTidalModalContent();
-    el.modalTidalCurrent.classList.add('active');
-    document.body.style.overflow = 'hidden';
+    if (!el.modalTidalCurrent) {
+      console.warn('modal-tidal-current not found in DOM');
+      return;
+    }
+    try {
+      renderTidalModalContent();
+      el.modalTidalCurrent.classList.add('active');
+      document.body.style.overflow = 'hidden';
+    } catch (err) {
+      console.error('Error opening Tidal Modal:', err);
+      showToast('⚠️ Ralat membuka modul pasang surut: ' + err.message);
+    }
   }
 
   function closeTidalModal() {
@@ -5403,13 +5426,16 @@
   }
 
   function renderTidalModalContent(selectedStationId = null) {
-    if (!el.tidalModalBody) return;
+    if (!el.tidalModalBody) {
+      console.warn('tidal-modal-body not found in DOM');
+      return;
+    }
 
     let lat = parseCoordinate(el.originLatInput ? el.originLatInput.value : '', true);
     let lon = parseCoordinate(el.originLonInput ? el.originLonInput.value : '', false);
     if (isNaN(lat) || isNaN(lon)) {
-      lat = state.originGeo.lat || DEFAULT_ORIGIN_GEO.lat;
-      lon = state.originGeo.lon || DEFAULT_ORIGIN_GEO.lon;
+      lat = (state.originGeo && state.originGeo.lat) || DEFAULT_ORIGIN_GEO.lat;
+      lon = (state.originGeo && state.originGeo.lon) || DEFAULT_ORIGIN_GEO.lon;
     }
 
     const nearestData = findNearestTidalStation(lat, lon);
@@ -5433,7 +5459,8 @@
     }
 
     const diffHours = Math.max(0.5, Math.round(((endDate.getTime() - startDate.getTime()) / 3600000) * 10) / 10);
-    const timeLabel = diffHours >= 24 ? `${diffHours} Jam (~${(diffHours / 24.0).toFixed(1)} Hari)` : `${diffHours} Jam`;
+    const diffDays = (diffHours / 24.0).toFixed(1);
+    const timeLabel = diffHours >= 24 ? `${diffHours} Jam (~${diffDays} Hari)` : `${diffHours} Jam`;
 
     const calcResult = computeMultiDayTidalStreamSeries(currentStation, startDate, diffHours);
     currentTidalCalculation = calcResult;
