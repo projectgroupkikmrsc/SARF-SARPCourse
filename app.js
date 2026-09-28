@@ -1481,6 +1481,87 @@
     };
   }
 
+  function isCoordinateOnLand(lat, lon) {
+    if (isNaN(lat) || isNaN(lon)) return false;
+    const polys = (typeof window !== 'undefined' && window.MALAYSIA_LAND_POLYGONS) ? window.MALAYSIA_LAND_POLYGONS : ((typeof MALAYSIA_LAND_POLYGONS !== 'undefined') ? MALAYSIA_LAND_POLYGONS : []);
+    if (!polys || polys.length === 0) return false;
+
+    for (let i = 0; i < polys.length; i++) {
+      const p = polys[i];
+      const bbox = p.bbox;
+      if (lon < bbox[0] || lon > bbox[2] || lat < bbox[1] || lat > bbox[3]) continue;
+
+      const pts = p.pts;
+      let inside = false;
+      for (let j = 0, k = pts.length - 1; j < pts.length; k = j++) {
+        const xi = pts[j][0], yi = pts[j][1];
+        const xk = pts[k][0], yk = pts[k][1];
+        const intersect = ((yi > lat) !== (yk > lat)) && (lon < (xk - xi) * (lat - yi) / (yk - yi) + xi);
+        if (intersect) inside = !inside;
+      }
+      if (inside) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Mengesan pemintasan garisan pantai (Shoreline Intercept)
+   * Jika titik mula di laut dan menuju ke arah daratan, cari titik tepat di pesisir pantai di mana hanyutan terhenti (Landfall).
+   */
+  function findShorelineIntercept(startLat, startLon, bearingDeg, maxDistNM) {
+    if (maxDistNM <= 0.01) {
+      return { lat: startLat, lon: startLon, distNM: 0, isLandfall: false, originalDistNM: maxDistNM };
+    }
+
+    const startOnLand = isCoordinateOnLand(startLat, startLon);
+    const dest = calculateDestinationPoint(startLat, startLon, bearingDeg, maxDistNM);
+    const destOnLand = isCoordinateOnLand(dest.lat, dest.lon);
+
+    if (startOnLand) {
+      return { lat: dest.lat, lon: dest.lon, distNM: maxDistNM, isLandfall: false, startedOnLand: true, originalDistNM: maxDistNM };
+    }
+
+    const steps = 40;
+    let hitIndex = -1;
+
+    for (let i = 1; i <= steps; i++) {
+      const stepDist = (i / steps) * maxDistNM;
+      const pt = calculateDestinationPoint(startLat, startLon, bearingDeg, stepDist);
+      if (isCoordinateOnLand(pt.lat, pt.lon)) {
+        hitIndex = i;
+        break;
+      }
+    }
+
+    if (hitIndex === -1 && !destOnLand) {
+      return { lat: dest.lat, lon: dest.lon, distNM: maxDistNM, isLandfall: false, originalDistNM: maxDistNM };
+    }
+
+    let lowDist = ((hitIndex > 1 ? hitIndex - 1 : 0) / steps) * maxDistNM;
+    let highDist = hitIndex !== -1 ? (hitIndex / steps) * maxDistNM : maxDistNM;
+
+    for (let iter = 0; iter < 16; iter++) {
+      const midDist = (lowDist + highDist) / 2;
+      const midPt = calculateDestinationPoint(startLat, startLon, bearingDeg, midDist);
+      if (isCoordinateOnLand(midPt.lat, midPt.lon)) {
+        highDist = midDist;
+      } else {
+        lowDist = midDist;
+      }
+    }
+
+    const coastDist = lowDist;
+    const coastPt = calculateDestinationPoint(startLat, startLon, bearingDeg, coastDist);
+
+    return {
+      lat: coastPt.lat,
+      lon: coastPt.lon,
+      distNM: coastDist,
+      isLandfall: true,
+      originalDistNM: maxDistNM
+    };
+  }
+
   function parseCoordinate(inputStr, isLatitude) {
     if (typeof inputStr !== 'string') return NaN;
     let str = inputStr.trim().toUpperCase();
@@ -3133,21 +3214,39 @@
     const totalDriftDistR = Math.hypot(totalDxR, totalDyR);
     const totalDriftBearingR = totalDriftDistR > 0.0001 ? cartesianToNauticalBearing(totalDxR, totalDyR) : 0;
 
-    // 7. Final Datum GPS Coordinates (Center, Left, Right)
+    // 7. Final Datum GPS Coordinates (Center, Left, Right) dengan Shoreline Clamping (Landfall Detection)
     const originLat = state.originGeo.lat;
     const originLon = state.originGeo.lon;
     
-    const datumCoords = totalDriftDist > 0
-      ? calculateDestinationPoint(originLat, originLon, totalDriftBearing, totalDriftDist)
-      : { lat: originLat, lon: originLon };
+    const interceptCenter = totalDriftDist > 0
+      ? findShorelineIntercept(originLat, originLon, totalDriftBearing, totalDriftDist)
+      : { lat: originLat, lon: originLon, distNM: 0, isLandfall: false, originalDistNM: 0 };
 
-    const datumCoordsL = totalDriftDistL > 0
-      ? calculateDestinationPoint(originLat, originLon, totalDriftBearingL, totalDriftDistL)
-      : datumCoords;
+    const interceptL = totalDriftDistL > 0
+      ? findShorelineIntercept(originLat, originLon, totalDriftBearingL, totalDriftDistL)
+      : interceptCenter;
 
-    const datumCoordsR = totalDriftDistR > 0
-      ? calculateDestinationPoint(originLat, originLon, totalDriftBearingR, totalDriftDistR)
-      : datumCoords;
+    const interceptR = totalDriftDistR > 0
+      ? findShorelineIntercept(originLat, originLon, totalDriftBearingR, totalDriftDistR)
+      : interceptCenter;
+
+    const datumCoords = { lat: interceptCenter.lat, lon: interceptCenter.lon };
+    const datumCoordsL = { lat: interceptL.lat, lon: interceptL.lon };
+    const datumCoordsR = { lat: interceptR.lat, lon: interceptR.lon };
+
+    const isLandfall = !!interceptCenter.isLandfall;
+    const isLandfallL = !!interceptL.isLandfall;
+    const isLandfallR = !!interceptR.isLandfall;
+
+    const tLandfall = (isLandfall && totalDriftDist > 0)
+      ? (interceptCenter.distNM / totalDriftDist) * totalDurationHours
+      : null;
+    const tLandfallL = (isLandfallL && totalDriftDistL > 0)
+      ? (interceptL.distNM / totalDriftDistL) * totalDurationHours
+      : null;
+    const tLandfallR = (isLandfallR && totalDriftDistR > 0)
+      ? (interceptR.distNM / totalDriftDistR) * totalDurationHours
+      : null;
 
     // 8. Divergence Datum (DD) Separation Distance (IAMSAR Vol 2)
     // Jarak pemisahan fizikal garis lurus antara Datum L dan Datum R
@@ -3206,6 +3305,18 @@
       datumLonL: datumCoordsL.lon,
       datumLatR: datumCoordsR.lat,
       datumLonR: datumCoordsR.lon,
+      isLandfall,
+      isLandfallL,
+      isLandfallR,
+      landfallDist: interceptCenter.distNM,
+      landfallDistL: interceptL.distNM,
+      landfallDistR: interceptR.distNM,
+      originalDriftDist: interceptCenter.originalDistNM,
+      originalDriftDistL: interceptL.originalDistNM,
+      originalDriftDistR: interceptR.originalDistNM,
+      tLandfall,
+      tLandfallL,
+      tLandfallR,
       twcDx,
       twcDy,
       lwDx,
@@ -3391,7 +3502,7 @@
 
     // Step-by-step Math text
     if (el.resDriftMathText) {
-      el.resDriftMathText.textContent = 
+      let mathText = 
 `================ RESOLUSI VEKTOR TOTAL SURFACE DRIFT ================
 1. VEKTOR TOTAL WATER CURRENT (TWC):
    • Arah Set (θ_twc) = ${formatNauticalBearing(fd.scBearing)} T, Jarak (L_twc) = ${(fd.twcDist || fd.scDist || 0).toFixed(2)} NM (${dur.toFixed(2)} jam @ ${twcSpeed.toFixed(2)} kts)
@@ -3416,6 +3527,21 @@
    • Divergence Track Kiri  = ${formatNauticalBearing(fd.totalDriftBearingL)} T | Jarak (DL) = ${fd.totalDriftDistL.toFixed(2)} NM (@ ${totalSpeedL.toFixed(2)} kts)
    • Divergence Track Kanan = ${formatNauticalBearing(fd.totalDriftBearingR)} T | Jarak (DR) = ${fd.totalDriftDistR.toFixed(2)} NM (@ ${totalSpeedR.toFixed(2)} kts)
    • Divergence Datum (DD)  = ${(fd.divergenceDatumDist || 0).toFixed(2)} NM (Jarak pemisahan Datum L ↔ Datum R)` : '');
+
+      if (fd.isLandfall || fd.isLandfallL || fd.isLandfallR) {
+        mathText += `\n\n================ AMARAN PENDARATAN / TERKANDAS PANTAI (SHORELINE LANDFALL) ================`;
+        if (fd.isLandfall) {
+          mathText += `\n• Track Pusat: Terkandas di pesisir pantai pada jarak ${(fd.landfallDist || 0).toFixed(2)} NM (anggaran masa T+${(fd.tLandfall || 0).toFixed(2)} jam dari waktu kejadian).`;
+        }
+        if (fd.isLandfallL) {
+          mathText += `\n• Datum L: Terkandas di pesisir pantai pada jarak ${(fd.landfallDistL || 0).toFixed(2)} NM (anggaran masa T+${(fd.tLandfallL || 0).toFixed(2)} jam). Koordinat Datum L dihadkan pada garis pantai.`;
+        }
+        if (fd.isLandfallR) {
+          mathText += `\n• Datum R: Terkandas di pesisir pantai pada jarak ${(fd.landfallDistR || 0).toFixed(2)} NM (anggaran masa T+${(fd.tLandfallR || 0).toFixed(2)} jam). Koordinat Datum R dihadkan pada garis pantai.`;
+        }
+      }
+
+      el.resDriftMathText.textContent = mathText;
     }
   }
 
@@ -3469,22 +3595,53 @@
     const dd = typeof fd.divergenceDatumDist === 'number' ? fd.divergenceDatumDist : (Math.hypot((fd.totalDxR || 0) - (fd.totalDxL || 0), (fd.totalDyR || 0) - (fd.totalDyL || 0)));
 
     if (el.datumStatusBadge) {
-      el.datumStatusBadge.textContent = 'Telah Dikira';
-      el.datumStatusBadge.classList.add('active');
+      if (fd.isLandfall || fd.isLandfallL || fd.isLandfallR) {
+        el.datumStatusBadge.textContent = '🏖️ Terkandas Pantai';
+        el.datumStatusBadge.classList.add('active');
+        el.datumStatusBadge.style.background = '#e11d48';
+      } else {
+        el.datumStatusBadge.textContent = 'Telah Dikira';
+        el.datumStatusBadge.classList.add('active');
+        el.datumStatusBadge.style.background = '';
+      }
     }
 
     // 1. Dual Datum Hero Cards (Datum L & Datum R)
     if (el.resDatumLatL) el.resDatumLatL.textContent = formatCoordinate(fd.datumLatL, true);
     if (el.resDatumLonL) el.resDatumLonL.textContent = formatCoordinate(fd.datumLonL, false);
-    if (el.resDatumDriftL) el.resDatumDriftL.textContent = `${fd.totalDriftDistL.toFixed(2)} NM`;
+    if (el.resDatumDriftL) {
+      if (fd.isLandfallL) {
+        el.resDatumDriftL.innerHTML = `${fd.landfallDistL.toFixed(2)} NM <span style="font-size:0.75rem; color:#f43f5e;">(🏖️ Pantai T+${fd.tLandfallL.toFixed(1)}j)</span>`;
+      } else {
+        el.resDatumDriftL.textContent = `${fd.totalDriftDistL.toFixed(2)} NM`;
+      }
+    }
     if (el.resDatumTrackL) el.resDatumTrackL.textContent = `${formatNauticalBearing(fd.totalDriftBearingL)} T (${getCardinalDirection(fd.totalDriftBearingL)})`;
-    if (el.badgeDatumLTrack) el.badgeDatumLTrack.textContent = `Track L: ${formatNauticalBearing(fd.totalDriftBearingL)}`;
+    if (el.badgeDatumLTrack) {
+      if (fd.isLandfallL) {
+        el.badgeDatumLTrack.textContent = `Track L: ${formatNauticalBearing(fd.totalDriftBearingL)} (Terkandas Pantai)`;
+      } else {
+        el.badgeDatumLTrack.textContent = `Track L: ${formatNauticalBearing(fd.totalDriftBearingL)}`;
+      }
+    }
 
     if (el.resDatumLatR) el.resDatumLatR.textContent = formatCoordinate(fd.datumLatR, true);
     if (el.resDatumLonR) el.resDatumLonR.textContent = formatCoordinate(fd.datumLonR, false);
-    if (el.resDatumDriftR) el.resDatumDriftR.textContent = `${fd.totalDriftDistR.toFixed(2)} NM`;
+    if (el.resDatumDriftR) {
+      if (fd.isLandfallR) {
+        el.resDatumDriftR.innerHTML = `${fd.landfallDistR.toFixed(2)} NM <span style="font-size:0.75rem; color:#f43f5e;">(🏖️ Pantai T+${fd.tLandfallR.toFixed(1)}j)</span>`;
+      } else {
+        el.resDatumDriftR.textContent = `${fd.totalDriftDistR.toFixed(2)} NM`;
+      }
+    }
     if (el.resDatumTrackR) el.resDatumTrackR.textContent = `${formatNauticalBearing(fd.totalDriftBearingR)} T (${getCardinalDirection(fd.totalDriftBearingR)})`;
-    if (el.badgeDatumRTrack) el.badgeDatumRTrack.textContent = `Track R: ${formatNauticalBearing(fd.totalDriftBearingR)}`;
+    if (el.badgeDatumRTrack) {
+      if (fd.isLandfallR) {
+        el.badgeDatumRTrack.textContent = `Track R: ${formatNauticalBearing(fd.totalDriftBearingR)} (Terkandas Pantai)`;
+      } else {
+        el.badgeDatumRTrack.textContent = `Track R: ${formatNauticalBearing(fd.totalDriftBearingR)}`;
+      }
+    }
 
     // 2. Divergence Datum (DD) & Drift Velocity Error (DVe) (IAMSAR Vol 2)
     const aswdvEVal = typeof fd.aswdvE === 'number' ? fd.aswdvE : (parseFloat(el.aswdvEInput ? el.aswdvEInput.value : '0.5') || 0.0);
@@ -3509,11 +3666,33 @@
     // Legacy elements compatibility
     if (el.resDatumLat) el.resDatumLat.textContent = formatCoordinate(fd.datumLat, true);
     if (el.resDatumLon) el.resDatumLon.textContent = formatCoordinate(fd.datumLon, false);
-    if (el.resDatumDrift) el.resDatumDrift.textContent = `${fd.totalDriftDist.toFixed(2)} NM`;
+    if (el.resDatumDrift) {
+      if (fd.isLandfall) {
+        el.resDatumDrift.textContent = `${fd.landfallDist.toFixed(2)} NM (🏖️ Pantai T+${fd.tLandfall.toFixed(1)}j)`;
+      } else {
+        el.resDatumDrift.textContent = `${fd.totalDriftDist.toFixed(2)} NM`;
+      }
+    }
     if (el.resDatumTrack) el.resDatumTrack.textContent = `Arah: ${formatNauticalBearing(fd.totalDriftBearing)} (${getCardinalDirection(fd.totalDriftBearing)})`;
 
     // 3. Coordinate Summary Table (Hanya Origin, Datum L, Datum R, dan DD)
     if (el.datumCoordsTbody) {
+      const badgeL = fd.isLandfallL
+        ? `<span class="badge" style="background: #e11d48; color:#fff;">🏖️ Terkandas di Pesisir Pantai (T+${fd.tLandfallL.toFixed(1)}j)</span>`
+        : `<span class="badge" style="background: #0284c7; color:#fff;">Cabang Sisihan Kiri (-${(fd.divergence || 0).toFixed(1)}°)</span>`;
+
+      const badgeR = fd.isLandfallR
+        ? `<span class="badge" style="background: #e11d48; color:#fff;">🏖️ Terkandas di Pesisir Pantai (T+${fd.tLandfallR.toFixed(1)}j)</span>`
+        : `<span class="badge" style="background: #7e22ce; color:#fff;">Cabang Sisihan Kanan (+${(fd.divergence || 0).toFixed(1)}°)</span>`;
+
+      const distLDisplay = fd.isLandfallL
+        ? `<strong style="color: #38bdf8;">${fd.landfallDistL.toFixed(2)} NM</strong> <span style="font-size:0.75rem; color:#f43f5e;">(Pantai)</span>`
+        : `<strong style="color: #38bdf8;">${fd.totalDriftDistL.toFixed(2)} NM</strong>`;
+
+      const distRDisplay = fd.isLandfallR
+        ? `<strong style="color: #c084fc;">${fd.landfallDistR.toFixed(2)} NM</strong> <span style="font-size:0.75rem; color:#f43f5e;">(Pantai)</span>`
+        : `<strong style="color: #c084fc;">${fd.totalDriftDistR.toFixed(2)} NM</strong>`;
+
       el.datumCoordsTbody.innerHTML = `
         <tr style="background: rgba(16, 185, 129, 0.05);">
           <td><strong style="color: #34d399;">🏁 1. Origin (LKP)</strong></td>
@@ -3528,16 +3707,16 @@
           <td><strong style="color: #38bdf8;">${formatCoordinate(fd.datumLatL, true)}</strong></td>
           <td><strong style="color: #38bdf8;">${formatCoordinate(fd.datumLonL, false)}</strong></td>
           <td>${formatNauticalBearing(fd.totalDriftBearingL)} T</td>
-          <td><strong style="color: #38bdf8;">${fd.totalDriftDistL.toFixed(2)} NM</strong></td>
-          <td><span class="badge" style="background: #0284c7; color:#fff;">Cabang Sisihan Kiri (-${(fd.divergence || 0).toFixed(1)}°)</span></td>
+          <td>${distLDisplay}</td>
+          <td>${badgeL}</td>
         </tr>
         <tr style="background: rgba(192, 132, 252, 0.08);">
           <td><strong style="color: #c084fc;">📍 3. Datum R (Kanan)</strong></td>
           <td><strong style="color: #c084fc;">${formatCoordinate(fd.datumLatR, true)}</strong></td>
           <td><strong style="color: #c084fc;">${formatCoordinate(fd.datumLonR, false)}</strong></td>
           <td>${formatNauticalBearing(fd.totalDriftBearingR)} T</td>
-          <td><strong style="color: #c084fc;">${fd.totalDriftDistR.toFixed(2)} NM</strong></td>
-          <td><span class="badge" style="background: #7e22ce; color:#fff;">Cabang Sisihan Kanan (+${(fd.divergence || 0).toFixed(1)}°)</span></td>
+          <td>${distRDisplay}</td>
+          <td>${badgeR}</td>
         </tr>
         <tr style="background: rgba(245, 158, 11, 0.12); font-weight: 700;">
           <td><strong style="color: #f59e0b;">↔️ 4. Divergence Datum (DD)</strong></td>
@@ -4099,52 +4278,70 @@
         // 6. Marker Datum L (Kiri)
         const datumLMarker = L.circleMarker([fd.datumLatL, fd.datumLonL], {
           radius: 9,
-          fillColor: '#38bdf8',
+          fillColor: fd.isLandfallL ? '#e11d48' : '#38bdf8',
           color: '#ffffff',
           weight: 2.5,
           opacity: 1,
           fillOpacity: 0.95
         }).addTo(driftLayerGroup);
 
-        datumLMarker.bindTooltip('📍 2. Datum L (Kiri)', {
+        datumLMarker.bindTooltip(fd.isLandfallL ? `🏖️ 2. Datum L (Terkandas Pantai: ${fd.landfallDistL.toFixed(2)} NM)` : '📍 2. Datum L (Kiri)', {
           permanent: false,
           direction: 'top',
           className: 'nautical-map-tooltip'
         });
 
+        const landfallBannerL = fd.isLandfallL ? `
+          <div style="background: rgba(225, 29, 72, 0.1); border: 1px solid #e11d48; border-radius: 4px; padding: 4px 6px; margin-top: 6px; color: #e11d48; font-size: 0.8rem; font-weight: 600;">
+            🏖️ AMARAN: TERKANDAS DI PESISIR PANTAI<br>
+            Jarak Garis Pantai: ${(fd.landfallDistL || 0).toFixed(2)} NM (T+${fd.tLandfallL !== null ? fd.tLandfallL.toFixed(1) : '-'}j)<br>
+            <span style="font-weight:400; font-size:0.75rem; color:#64748b;">(Hanyutan asal ${(fd.originalDriftDistL || fd.totalDriftDistL || 0).toFixed(2)} NM dihadkan ke pesisir)</span>
+          </div>
+        ` : '';
+
         datumLMarker.bindPopup(`
           <div style="font-family: 'Outfit', sans-serif; min-width: 210px;">
-            <h4 style="color:#0284c7; margin-bottom:4px; font-weight:700;">📍 DATUM L (CABANG KIRI)</h4>
+            <h4 style="color:${fd.isLandfallL ? '#e11d48' : '#0284c7'}; margin-bottom:4px; font-weight:700;">📍 DATUM L (CABANG KIRI)</h4>
             <p style="margin:2px 0; font-size:0.85rem;"><strong>Lat:</strong> ${formatCoordinate(fd.datumLatL, true)}</p>
             <p style="margin:2px 0; font-size:0.85rem;"><strong>Lon:</strong> ${formatCoordinate(fd.datumLonL, false)}</p>
-            <p style="margin:2px 0; font-size:0.85rem;"><strong>Anjakan Bersih (DL):</strong> ${(fd.totalDriftDistL || 0).toFixed(2)} NM (${formatNauticalBearing(fd.totalDriftBearingL)})</p>
+            <p style="margin:2px 0; font-size:0.85rem;"><strong>Anjakan Bersih (DL):</strong> ${(fd.isLandfallL ? fd.landfallDistL : (fd.totalDriftDistL || 0)).toFixed(2)} NM (${formatNauticalBearing(fd.totalDriftBearingL)})</p>
             <p style="margin:2px 0; font-size:0.8rem; color:#94a3b8;">Cabang sisihan kiri (-${(fd.divergence || 0).toFixed(1)}°)</p>
+            ${landfallBannerL}
           </div>
         `).openPopup();
 
         // 7. Marker Datum R (Kanan)
         const datumRMarker = L.circleMarker([fd.datumLatR, fd.datumLonR], {
           radius: 9,
-          fillColor: '#a855f7',
+          fillColor: fd.isLandfallR ? '#e11d48' : '#a855f7',
           color: '#ffffff',
           weight: 2.5,
           opacity: 1,
           fillOpacity: 0.95
         }).addTo(driftLayerGroup);
 
-        datumRMarker.bindTooltip('📍 3. Datum R (Kanan)', {
+        datumRMarker.bindTooltip(fd.isLandfallR ? `🏖️ 3. Datum R (Terkandas Pantai: ${fd.landfallDistR.toFixed(2)} NM)` : '📍 3. Datum R (Kanan)', {
           permanent: false,
           direction: 'top',
           className: 'nautical-map-tooltip'
         });
 
+        const landfallBannerR = fd.isLandfallR ? `
+          <div style="background: rgba(225, 29, 72, 0.1); border: 1px solid #e11d48; border-radius: 4px; padding: 4px 6px; margin-top: 6px; color: #e11d48; font-size: 0.8rem; font-weight: 600;">
+            🏖️ AMARAN: TERKANDAS DI PESISIR PANTAI<br>
+            Jarak Garis Pantai: ${(fd.landfallDistR || 0).toFixed(2)} NM (T+${fd.tLandfallR !== null ? fd.tLandfallR.toFixed(1) : '-'}j)<br>
+            <span style="font-weight:400; font-size:0.75rem; color:#64748b;">(Hanyutan asal ${(fd.originalDriftDistR || fd.totalDriftDistR || 0).toFixed(2)} NM dihadkan ke pesisir)</span>
+          </div>
+        ` : '';
+
         datumRMarker.bindPopup(`
           <div style="font-family: 'Outfit', sans-serif; min-width: 210px;">
-            <h4 style="color:#9333ea; margin-bottom:4px; font-weight:700;">📍 DATUM R (CABANG KANAN)</h4>
+            <h4 style="color:${fd.isLandfallR ? '#e11d48' : '#9333ea'}; margin-bottom:4px; font-weight:700;">📍 DATUM R (CABANG KANAN)</h4>
             <p style="margin:2px 0; font-size:0.85rem;"><strong>Lat:</strong> ${formatCoordinate(fd.datumLatR, true)}</p>
             <p style="margin:2px 0; font-size:0.85rem;"><strong>Lon:</strong> ${formatCoordinate(fd.datumLonR, false)}</p>
-            <p style="margin:2px 0; font-size:0.85rem;"><strong>Anjakan Bersih (DR):</strong> ${(fd.totalDriftDistR || 0).toFixed(2)} NM (${formatNauticalBearing(fd.totalDriftBearingR)})</p>
+            <p style="margin:2px 0; font-size:0.85rem;"><strong>Anjakan Bersih (DR):</strong> ${(fd.isLandfallR ? fd.landfallDistR : (fd.totalDriftDistR || 0)).toFixed(2)} NM (${formatNauticalBearing(fd.totalDriftBearingR)})</p>
             <p style="margin:2px 0; font-size:0.8rem; color:#94a3b8;">Cabang sisihan kanan (+${(fd.divergence || 0).toFixed(1)}°)</p>
+            ${landfallBannerR}
           </div>
         `);
 
@@ -4195,19 +4392,34 @@
 
         const singleDatumMarker = L.circleMarker([datumLat, datumLon], {
           radius: 9,
-          fillColor: '#38bdf8',
+          fillColor: fd.isLandfall ? '#e11d48' : '#38bdf8',
           color: '#ffffff',
           weight: 2.5,
           opacity: 1,
           fillOpacity: 0.95
         }).addTo(driftLayerGroup);
 
+        const singleLandfallBanner = fd.isLandfall ? `
+          <div style="background: rgba(225, 29, 72, 0.1); border: 1px solid #e11d48; border-radius: 4px; padding: 4px 6px; margin-top: 6px; color: #e11d48; font-size: 0.8rem; font-weight: 600;">
+            🏖️ AMARAN: TERKANDAS DI PESISIR PANTAI<br>
+            Jarak Garis Pantai: ${(fd.landfallDist || 0).toFixed(2)} NM (T+${fd.tLandfall !== null ? fd.tLandfall.toFixed(1) : '-'}j)<br>
+            <span style="font-weight:400; font-size:0.75rem; color:#64748b;">(Hanyutan asal ${(fd.originalDriftDist || fd.totalDriftDist || 0).toFixed(2)} NM dihadkan ke pesisir)</span>
+          </div>
+        ` : '';
+
+        singleDatumMarker.bindTooltip(fd.isLandfall ? `🏖️ Datum SAR (Terkandas Pantai: ${(fd.landfallDist || 0).toFixed(2)} NM)` : '📍 Kedudukan Datum SAR', {
+          permanent: false,
+          direction: 'top',
+          className: 'nautical-map-tooltip'
+        });
+
         singleDatumMarker.bindPopup(`
           <div style="font-family: 'Outfit', sans-serif; min-width: 200px;">
-            <h4 style="color:#0284c7; margin-bottom: 4px; font-weight:700;">📍 KEDUDUKAN DATUM SAR</h4>
+            <h4 style="color:${fd.isLandfall ? '#e11d48' : '#0284c7'}; margin-bottom: 4px; font-weight:700;">📍 KEDUDUKAN DATUM SAR</h4>
             <p style="margin:3px 0; font-size:0.85rem;"><strong>Lat Datum:</strong> ${formatCoordinate(datumLat, true)}</p>
             <p style="margin:3px 0; font-size:0.85rem;"><strong>Lon Datum:</strong> ${formatCoordinate(datumLon, false)}</p>
-            <p style="margin:3px 0; font-size:0.85rem;"><strong>Jumlah Anjakan:</strong> ${(fd.totalDriftDist || 0).toFixed(2)} NM (${formatNauticalBearing(fd.totalDriftBearing)})</p>
+            <p style="margin:3px 0; font-size:0.85rem;"><strong>Jumlah Anjakan:</strong> ${(fd.isLandfall ? fd.landfallDist : (fd.totalDriftDist || 0)).toFixed(2)} NM (${formatNauticalBearing(fd.totalDriftBearing)})</p>
+            ${singleLandfallBanner}
           </div>
         `).openPopup();
 
@@ -10141,29 +10353,6 @@
   // =========================================================================
   // OFFLINE LAND-SEA MASK (PENGESANAN DARATAN / COASTLINE CLIPPING)
   // =========================================================================
-
-  function isCoordinateOnLand(lat, lon) {
-    if (isNaN(lat) || isNaN(lon)) return false;
-    const polys = (typeof MALAYSIA_LAND_POLYGONS !== 'undefined') ? MALAYSIA_LAND_POLYGONS : (window.MALAYSIA_LAND_POLYGONS || []);
-    if (!polys || polys.length === 0) return false;
-
-    for (let i = 0; i < polys.length; i++) {
-      const p = polys[i];
-      const bbox = p.bbox;
-      if (lon < bbox[0] || lon > bbox[2] || lat < bbox[1] || lat > bbox[3]) continue;
-
-      const pts = p.pts;
-      let inside = false;
-      for (let j = 0, k = pts.length - 1; j < pts.length; k = j++) {
-        const xi = pts[j][0], yi = pts[j][1];
-        const xk = pts[k][0], yk = pts[k][1];
-        const intersect = ((yi > lat) !== (yk > lat)) && (lon < (xk - xi) * (lat - yi) / (yk - yi) + xi);
-        if (intersect) inside = !inside;
-      }
-      if (inside) return true;
-    }
-    return false;
-  }
 
   function getTacticalOperationalArea() {
     let centerLat = state.originGeo.lat || DEFAULT_ORIGIN_GEO.lat;
