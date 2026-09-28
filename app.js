@@ -5274,14 +5274,14 @@
 
   function openMetoceanModal() {
     if (el.modalMetocean) {
-      el.modalMetocean.style.display = 'flex';
+      el.modalMetocean.classList.add('active');
       document.body.style.overflow = 'hidden';
     }
   }
 
   function closeMetoceanModal() {
     if (el.modalMetocean) {
-      el.modalMetocean.style.display = 'none';
+      el.modalMetocean.classList.remove('active');
       document.body.style.overflow = '';
     }
   }
