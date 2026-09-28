@@ -3918,8 +3918,6 @@
   }
 
   function syncMapOverlaysVisibility() {
-    if (!leafletMap) return;
-
     const overlays = state.mapOverlays || {
       wc: true,
       sc: true,
@@ -3929,6 +3927,28 @@
       searchTracks: true
     };
 
+    // Kemaskini visual butang toggle pada toolbar atas peta serta-merta
+    if (el.btnToggleWcLayer) {
+      el.btnToggleWcLayer.classList.toggle('active', !!overlays.wc);
+    }
+    if (el.btnToggleScLayer) {
+      el.btnToggleScLayer.classList.toggle('active', !!overlays.sc);
+    }
+    if (el.btnToggleLeewayLayer) {
+      el.btnToggleLeewayLayer.classList.toggle('active', !!overlays.leeway);
+    }
+    if (el.btnToggleDriftLayer) {
+      el.btnToggleDriftLayer.classList.toggle('active', !!overlays.driftTriangle);
+    }
+    if (el.btnToggleRadiusLayer) {
+      el.btnToggleRadiusLayer.classList.toggle('active', !!overlays.datumRadius);
+    }
+    if (el.btnTogglePatternLayer) {
+      el.btnTogglePatternLayer.classList.toggle('active', !!overlays.searchTracks);
+    }
+
+    if (!leafletMap) return;
+
     // 1. Wind Current (WC) Layer
     if (wcLayerGroup) {
       if (overlays.wc) {
@@ -3936,9 +3956,6 @@
       } else {
         if (leafletMap.hasLayer(wcLayerGroup)) leafletMap.removeLayer(wcLayerGroup);
       }
-    }
-    if (el.btnToggleWcLayer) {
-      el.btnToggleWcLayer.classList.toggle('active', !!overlays.wc);
     }
 
     // 2. Sea Current (SC / TWC) Layer
@@ -3949,9 +3966,6 @@
         if (leafletMap.hasLayer(scLayerGroup)) leafletMap.removeLayer(scLayerGroup);
       }
     }
-    if (el.btnToggleScLayer) {
-      el.btnToggleScLayer.classList.toggle('active', !!overlays.sc);
-    }
 
     // 3. Leeway Vector Layer
     if (leewayLayerGroup) {
@@ -3960,9 +3974,6 @@
       } else {
         if (leafletMap.hasLayer(leewayLayerGroup)) leafletMap.removeLayer(leewayLayerGroup);
       }
-    }
-    if (el.btnToggleLeewayLayer) {
-      el.btnToggleLeewayLayer.classList.toggle('active', !!overlays.leeway);
     }
 
     // 4. Drift Triangle Layer (Paduan DL, DR & Marker Datum L/R)
@@ -3973,9 +3984,6 @@
         if (leafletMap.hasLayer(driftLayerGroup)) leafletMap.removeLayer(driftLayerGroup);
       }
     }
-    if (el.btnToggleDriftLayer) {
-      el.btnToggleDriftLayer.classList.toggle('active', !!overlays.driftTriangle);
-    }
 
     // 5. Radius Layer (DD Line & Bulatan Radius)
     if (radiusLayerGroup) {
@@ -3984,9 +3992,6 @@
       } else {
         if (leafletMap.hasLayer(radiusLayerGroup)) leafletMap.removeLayer(radiusLayerGroup);
       }
-    }
-    if (el.btnToggleRadiusLayer) {
-      el.btnToggleRadiusLayer.classList.toggle('active', !!overlays.datumRadius);
     }
 
     // 6. Search Tracks Layer
@@ -4003,9 +4008,6 @@
       } else {
         if (leafletMap.hasLayer(waypointMarkerLayerGroup)) leafletMap.removeLayer(waypointMarkerLayerGroup);
       }
-    }
-    if (el.btnTogglePatternLayer) {
-      el.btnTogglePatternLayer.classList.toggle('active', !!overlays.searchTracks);
     }
   }
 
@@ -9264,6 +9266,120 @@
   // =========================================================================
 
   function setupEventListeners() {
+    // =======================================================================
+    // 0. BUTANG UTAMA HEADER & NAVIGASI (PRIORITI TERTINGGI)
+    // =======================================================================
+    try {
+      if (el.btnThemeToggle) {
+        el.btnThemeToggle.addEventListener('click', (e) => {
+          e.stopPropagation();
+          toggleTheme();
+        });
+      }
+      if (el.btnFullscreen) {
+        el.btnFullscreen.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(() => {});
+          } else {
+            document.exitFullscreen().catch(() => {});
+          }
+        });
+      }
+      if (el.btnOpenMathPopup) {
+        el.btnOpenMathPopup.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openMathPopup();
+        });
+      }
+    } catch (errHeader) {
+      console.error('Error attaching header button listeners:', errHeader);
+    }
+
+    // =======================================================================
+    // 0.1 BUTANG TOGGLE FLOATING OVERLAYS PETA & ALIRAN (PRIORITI TERTINGGI)
+    // =======================================================================
+    try {
+      if (el.btnToggleFlowWind) {
+        el.btnToggleFlowWind.addEventListener('click', (e) => {
+          e.stopPropagation();
+          setFlowMode('wind');
+        });
+      }
+      if (el.btnToggleFlowCurrent) {
+        el.btnToggleFlowCurrent.addEventListener('click', (e) => {
+          e.stopPropagation();
+          setFlowMode('current');
+        });
+      }
+      if (el.btnToggleFlowGrid) {
+        el.btnToggleFlowGrid.addEventListener('click', (e) => {
+          e.stopPropagation();
+          toggleFlowGrid();
+        });
+      }
+
+      if (el.btnToggleWcLayer) {
+        el.btnToggleWcLayer.addEventListener('click', (e) => {
+          e.stopPropagation();
+          state.mapOverlays.wc = !state.mapOverlays.wc;
+          syncMapOverlaysVisibility();
+          showToast(state.mapOverlays.wc ? '💨 Vektor Wind Current (WC): Papar' : '💨 Vektor Wind Current (WC): Sembunyi');
+          saveAppState();
+        });
+      }
+      if (el.btnToggleScLayer) {
+        el.btnToggleScLayer.addEventListener('click', (e) => {
+          e.stopPropagation();
+          state.mapOverlays.sc = !state.mapOverlays.sc;
+          syncMapOverlaysVisibility();
+          showToast(state.mapOverlays.sc ? '🌊 Vektor Sea Current (SC): Papar' : '🌊 Vektor Sea Current (SC): Sembunyi');
+          saveAppState();
+        });
+      }
+      if (el.btnToggleLeewayLayer) {
+        el.btnToggleLeewayLayer.addEventListener('click', (e) => {
+          e.stopPropagation();
+          state.mapOverlays.leeway = !state.mapOverlays.leeway;
+          syncMapOverlaysVisibility();
+          showToast(state.mapOverlays.leeway ? '🌬️ Vektor Leeway: Papar' : '🌬️ Vektor Leeway: Sembunyi');
+          saveAppState();
+        });
+      }
+      if (el.btnToggleDriftLayer) {
+        el.btnToggleDriftLayer.addEventListener('click', (e) => {
+          e.stopPropagation();
+          state.mapOverlays.driftTriangle = !state.mapOverlays.driftTriangle;
+          syncMapOverlaysVisibility();
+          showToast(state.mapOverlays.driftTriangle ? '📐 Segitiga Hanyutan: Papar' : '📐 Segitiga Hanyutan: Sembunyi');
+          saveAppState();
+        });
+      }
+      if (el.btnTogglePatternLayer) {
+        el.btnTogglePatternLayer.addEventListener('click', (e) => {
+          e.stopPropagation();
+          state.mapOverlays.searchTracks = !state.mapOverlays.searchTracks;
+          if (state.mapOverlays.searchTracks) {
+            plotSearchPatternsOnMap();
+          }
+          syncMapOverlaysVisibility();
+          showToast(state.mapOverlays.searchTracks ? '🧭 Laluan Carian: Papar' : '🧭 Laluan Carian: Sembunyi');
+          saveAppState();
+        });
+      }
+      if (el.btnToggleRadiusLayer) {
+        el.btnToggleRadiusLayer.addEventListener('click', (e) => {
+          e.stopPropagation();
+          state.mapOverlays.datumRadius = !state.mapOverlays.datumRadius;
+          syncMapOverlaysVisibility();
+          showToast(state.mapOverlays.datumRadius ? '🎯 Radius Carian (R): Papar' : '🎯 Radius Carian (R): Sembunyi');
+          saveAppState();
+        });
+      }
+    } catch (errOverlays) {
+      console.error('Error attaching floating map overlay listeners:', errOverlays);
+    }
+
     // Pengendalian Tab Kiri (Vector, Determining Datum, Planning)
     document.querySelectorAll('.sidebar-tab-btn').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -10242,27 +10358,6 @@
       });
     }
 
-    // Togol Mod Cerah / Mod Gelap
-    if (el.btnThemeToggle) {
-      el.btnThemeToggle.addEventListener('click', toggleTheme);
-    }
-
-    // Buka Langkah Pengiraan dalam Pop-up (PC) atau Tab Baharu (Mobile)
-    if (el.btnOpenMathPopup) {
-      el.btnOpenMathPopup.addEventListener('click', openMathPopup);
-    }
-
-    // Skrin Penuh (Fullscreen Toggle)
-    if (el.btnFullscreen) {
-      el.btnFullscreen.addEventListener('click', () => {
-        if (!document.fullscreenElement) {
-          document.documentElement.requestFullscreen().catch(() => {});
-        } else {
-          document.exitFullscreen().catch(() => {});
-        }
-      });
-    }
-
     // Mouse Drag & Touch untuk Pan pada Canvas Wrapper
     if (el.canvasWrapper) {
       el.canvasWrapper.addEventListener('mousedown', (e) => {
@@ -10362,83 +10457,7 @@
       });
     }
 
-    // Butang Floating Overlays: Windy Particle Flow & Vector Overlays (Feature 5)
-    if (el.btnToggleFlowWind) {
-      el.btnToggleFlowWind.addEventListener('click', (e) => {
-        e.stopPropagation();
-        setFlowMode('wind');
-      });
-    }
-    if (el.btnToggleFlowCurrent) {
-      el.btnToggleFlowCurrent.addEventListener('click', (e) => {
-        e.stopPropagation();
-        setFlowMode('current');
-      });
-    }
-    if (el.btnToggleFlowGrid) {
-      el.btnToggleFlowGrid.addEventListener('click', (e) => {
-        e.stopPropagation();
-        toggleFlowGrid();
-      });
-    }
 
-    if (el.btnToggleWcLayer) {
-      el.btnToggleWcLayer.addEventListener('click', (e) => {
-        e.stopPropagation();
-        state.mapOverlays.wc = !state.mapOverlays.wc;
-        syncMapOverlaysVisibility();
-        showToast(state.mapOverlays.wc ? '💨 Vektor Wind Current (WC): Papar' : '💨 Vektor Wind Current (WC): Sembunyi');
-        saveAppState();
-      });
-    }
-    if (el.btnToggleScLayer) {
-      el.btnToggleScLayer.addEventListener('click', (e) => {
-        e.stopPropagation();
-        state.mapOverlays.sc = !state.mapOverlays.sc;
-        syncMapOverlaysVisibility();
-        showToast(state.mapOverlays.sc ? '🌊 Vektor Sea Current (SC): Papar' : '🌊 Vektor Sea Current (SC): Sembunyi');
-        saveAppState();
-      });
-    }
-    if (el.btnToggleLeewayLayer) {
-      el.btnToggleLeewayLayer.addEventListener('click', (e) => {
-        e.stopPropagation();
-        state.mapOverlays.leeway = !state.mapOverlays.leeway;
-        syncMapOverlaysVisibility();
-        showToast(state.mapOverlays.leeway ? '🌬️ Vektor Leeway: Papar' : '🌬️ Vektor Leeway: Sembunyi');
-        saveAppState();
-      });
-    }
-    if (el.btnToggleDriftLayer) {
-      el.btnToggleDriftLayer.addEventListener('click', (e) => {
-        e.stopPropagation();
-        state.mapOverlays.driftTriangle = !state.mapOverlays.driftTriangle;
-        syncMapOverlaysVisibility();
-        showToast(state.mapOverlays.driftTriangle ? '📐 Segitiga Hanyutan: Papar' : '📐 Segitiga Hanyutan: Sembunyi');
-        saveAppState();
-      });
-    }
-    if (el.btnTogglePatternLayer) {
-      el.btnTogglePatternLayer.addEventListener('click', (e) => {
-        e.stopPropagation();
-        state.mapOverlays.searchTracks = !state.mapOverlays.searchTracks;
-        if (state.mapOverlays.searchTracks) {
-          plotSearchPatternsOnMap();
-        }
-        syncMapOverlaysVisibility();
-        showToast(state.mapOverlays.searchTracks ? '🧭 Laluan Carian: Papar' : '🧭 Laluan Carian: Sembunyi');
-        saveAppState();
-      });
-    }
-    if (el.btnToggleRadiusLayer) {
-      el.btnToggleRadiusLayer.addEventListener('click', (e) => {
-        e.stopPropagation();
-        state.mapOverlays.datumRadius = !state.mapOverlays.datumRadius;
-        syncMapOverlaysVisibility();
-        showToast(state.mapOverlays.datumRadius ? '🎯 Radius Carian (R): Papar' : '🎯 Radius Carian (R): Sembunyi');
-        saveAppState();
-      });
-    }
 
     window.addEventListener('resize', () => {
       if (state.displayMode === 'grid') {
@@ -11429,9 +11448,24 @@
   };
 
   function initApp() {
-    const hasRestoredState = loadAppState();
-    setupEventListeners();
-    initTheme();
+    try {
+      setupEventListeners();
+    } catch (errEvents) {
+      console.error('Error during setupEventListeners:', errEvents);
+    }
+
+    try {
+      initTheme();
+    } catch (errTheme) {
+      console.error('Error during initTheme:', errTheme);
+    }
+
+    let hasRestoredState = false;
+    try {
+      hasRestoredState = loadAppState();
+    } catch (errState) {
+      console.error('Error during loadAppState:', errState);
+    }
 
     const activeTab = state.activeTab || 'vector';
     switchTab(activeTab);
