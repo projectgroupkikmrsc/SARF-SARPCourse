@@ -10334,6 +10334,15 @@
       });
     });
 
+    const LAYER_NAMES = {
+      wc: '💨 Vektor Wind Current (WC)',
+      sc: '🌊 Vektor Sea Current (SC)',
+      leeway: '🌬️ Vektor Leeway',
+      driftTriangle: '📐 Segitiga Hanyutan',
+      datumRadius: '🎯 Radius Carian (R)',
+      searchTracks: '🧭 Laluan Carian'
+    };
+
     document.querySelectorAll('.map-layer-pill').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.preventDefault();
@@ -10345,6 +10354,8 @@
             plotSearchPatternsOnMap();
           }
           syncMapOverlaysVisibility();
+          const name = LAYER_NAMES[layer] || layer;
+          showToast(state.mapOverlays[layer] ? `${name}: Dipaparkan` : `${name}: Disembunyikan`);
           saveAppState();
         }
       });
