@@ -10320,20 +10320,6 @@
       });
     }
 
-    // Butang Floating Overlays: Windy Particle Flow & Vector Overlays (Feature 5)
-    document.querySelectorAll('.map-flow-icon-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const mode = btn.dataset.flowMode;
-        if (mode === 'grid') {
-          toggleFlowGrid();
-        } else if (mode === 'wind' || mode === 'current') {
-          setFlowMode(mode);
-        }
-      });
-    });
-
     const LAYER_NAMES = {
       wc: '💨 Vektor Wind Current (WC)',
       sc: '🌊 Vektor Sea Current (SC)',
@@ -10343,21 +10329,43 @@
       searchTracks: '🧭 Laluan Carian'
     };
 
+    window.toggleMapLayer = function(layer, btnEl) {
+      if (!layer || !state.mapOverlays) return;
+      state.mapOverlays[layer] = !state.mapOverlays[layer];
+      if (layer === 'searchTracks' && state.mapOverlays.searchTracks) {
+        plotSearchPatternsOnMap();
+      }
+      syncMapOverlaysVisibility();
+      const name = LAYER_NAMES[layer] || layer;
+      showToast(state.mapOverlays[layer] ? `${name}: Dipaparkan` : `${name}: Disembunyikan`);
+      saveAppState();
+    };
+
+    window.toggleFlowMode = function(mode, btnEl) {
+      if (!mode) return;
+      if (mode === 'grid') {
+        toggleFlowGrid();
+      } else if (mode === 'wind' || mode === 'current') {
+        setFlowMode(mode);
+      }
+    };
+
+    // Butang Floating Overlays: Windy Particle Flow & Vector Overlays (Feature 5)
+    document.querySelectorAll('.map-flow-icon-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const mode = btn.dataset.flowMode;
+        window.toggleFlowMode(mode, btn);
+      });
+    });
+
     document.querySelectorAll('.map-layer-pill').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
         const layer = btn.dataset.mapLayer;
-        if (layer && state.mapOverlays) {
-          state.mapOverlays[layer] = !state.mapOverlays[layer];
-          if (layer === 'searchTracks' && state.mapOverlays.searchTracks) {
-            plotSearchPatternsOnMap();
-          }
-          syncMapOverlaysVisibility();
-          const name = LAYER_NAMES[layer] || layer;
-          showToast(state.mapOverlays[layer] ? `${name}: Dipaparkan` : `${name}: Disembunyikan`);
-          saveAppState();
-        }
+        window.toggleMapLayer(layer, btn);
       });
     });
 
