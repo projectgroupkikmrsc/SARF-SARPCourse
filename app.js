@@ -9597,6 +9597,33 @@
   // ANIMASI ALIRAN ZARAH ANGIN & ARUS LAUT ALA WINDY (WINDY-STYLE STREAMLINES & VECTOR GRID)
   // =========================================================================
 
+  // =========================================================================
+  // OFFLINE LAND-SEA MASK (PENGESANAN DARATAN / COASTLINE CLIPPING)
+  // =========================================================================
+
+  function isCoordinateOnLand(lat, lon) {
+    if (isNaN(lat) || isNaN(lon)) return false;
+    const polys = (typeof MALAYSIA_LAND_POLYGONS !== 'undefined') ? MALAYSIA_LAND_POLYGONS : (window.MALAYSIA_LAND_POLYGONS || []);
+    if (!polys || polys.length === 0) return false;
+
+    for (let i = 0; i < polys.length; i++) {
+      const p = polys[i];
+      const bbox = p.bbox;
+      if (lon < bbox[0] || lon > bbox[2] || lat < bbox[1] || lat > bbox[3]) continue;
+
+      const pts = p.pts;
+      let inside = false;
+      for (let j = 0, k = pts.length - 1; j < pts.length; k = j++) {
+        const xi = pts[j][0], yi = pts[j][1];
+        const xk = pts[k][0], yk = pts[k][1];
+        const intersect = ((yi > lat) !== (yk > lat)) && (lon < (xk - xi) * (lat - yi) / (yk - yi) + xi);
+        if (intersect) inside = !inside;
+      }
+      if (inside) return true;
+    }
+    return false;
+  }
+
   function getTacticalOperationalArea() {
     let centerLat = state.originGeo.lat || DEFAULT_ORIGIN_GEO.lat;
     let centerLon = state.originGeo.lon || DEFAULT_ORIGIN_GEO.lon;
@@ -9614,15 +9641,33 @@
   }
 
   function spawnWindyParticle(p, w, h, centerPx, opsRadiusPx) {
-    if (centerPx && opsRadiusPx > 10) {
-      const r = (opsRadiusPx * 0.95) * Math.sqrt(Math.random());
-      const theta = Math.random() * 2 * Math.PI;
-      p.x = centerPx.x + r * Math.cos(theta);
-      p.y = centerPx.y + r * Math.sin(theta);
-    } else {
-      p.x = Math.random() * w;
-      p.y = Math.random() * h;
+    const isCurrentMode = state.flowField && state.flowField.mode === 'current';
+    let attempts = 0;
+
+    while (attempts < 6) {
+      if (centerPx && opsRadiusPx > 10) {
+        const r = (opsRadiusPx * 0.95) * Math.sqrt(Math.random());
+        const theta = Math.random() * 2 * Math.PI;
+        p.x = centerPx.x + r * Math.cos(theta);
+        p.y = centerPx.y + r * Math.sin(theta);
+      } else {
+        p.x = Math.random() * w;
+        p.y = Math.random() * h;
+      }
+
+      // Untuk mod arus laut (current), pastikan zarah tidak dijanakan di atas daratan
+      if (isCurrentMode && leafletMap) {
+        try {
+          const ll = leafletMap.containerPointToLatLng([p.x, p.y]);
+          if (isCoordinateOnLand(ll.lat, ll.lng)) {
+            attempts++;
+            continue;
+          }
+        } catch (e) {}
+      }
+      break;
     }
+
     p.oldX = p.x;
     p.oldY = p.y;
     p.age = Math.floor(Math.random() * 40);
@@ -9668,6 +9713,10 @@
   }
 
   function getInterpolatedMetoceanVector(lat, lon, simHour = 0, mode = 'wind') {
+    if (mode === 'current' && isCoordinateOnLand(lat, lon)) {
+      return { speed: 0, dir: 0, flowHeading: 0, isLand: true };
+    }
+
     if (!state.metoceanGrid || state.metoceanGrid.length === 0) {
       return null;
     }
@@ -9754,6 +9803,11 @@
   }
 
   function getMetoceanVectorAtTime(simHour = 0, mode = 'wind', lat = null, lon = null) {
+    // Sekat arus jika koordinat berada di atas darat
+    if (mode === 'current' && lat !== null && lon !== null && isCoordinateOnLand(lat, lon)) {
+      return { speed: 0, dir: 0, flowHeading: 0, isLand: true };
+    }
+
     if (lat !== null && lon !== null && state.metoceanGrid && state.metoceanGrid.length > 0) {
       const interpolated = getInterpolatedMetoceanVector(lat, lon, simHour, mode);
       if (interpolated) return interpolated;
@@ -9848,6 +9902,11 @@
             lat = ll.lat;
             lon = ll.lng;
           } catch (e) {}
+        }
+
+        // Jangan lukis anak panah arus laut di atas darat
+        if (mode === 'current' && lat !== null && lon !== null && isCoordinateOnLand(lat, lon)) {
+          continue;
         }
 
         const vector = getMetoceanVectorAtTime(simHour, mode, lat, lon);
@@ -9992,8 +10051,9 @@
       let distFromCenter = centerPx ? Math.hypot(p.x - centerPx.x, p.y - centerPx.y) : 0;
       const isOutsideOps = centerPx && opsRadiusPx > 10 && distFromCenter > opsRadiusPx * 1.15;
       const isOutsideScreen = p.x < -20 || p.x > w + 20 || p.y < -20 || p.y > h + 20;
+      const isCurrentOnLand = (mode === 'current' && pLat !== null && pLon !== null && isCoordinateOnLand(pLat, pLon));
 
-      if (p.age >= p.maxAge || isOutsideOps || isOutsideScreen) {
+      if (p.age >= p.maxAge || isOutsideOps || isOutsideScreen || isCurrentOnLand) {
         spawnWindyParticle(p, w, h, centerPx, opsRadiusPx);
         continue;
       }
