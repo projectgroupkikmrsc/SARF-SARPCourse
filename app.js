@@ -1370,7 +1370,51 @@
     mcPocStat: document.getElementById('mc-poc-stat')
   };
 
-  const ctx = el.canvas.getContext('2d');
+  const ctx = el.canvas ? el.canvas.getContext('2d') : null;
+
+  // =========================================================================
+  // NOTIFIKASI TOAST (POP-UP MAKLUM BALAS PENGGUNA)
+  // =========================================================================
+
+  function showToast(message, duration = 2800) {
+    if (!message || typeof document === 'undefined') return;
+    try {
+      let container = document.getElementById('toast-notification-container');
+      if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-notification-container';
+        container.style.cssText = 'position: fixed; bottom: 24px; right: 24px; z-index: 999999; display: flex; flex-direction: column; gap: 8px; pointer-events: none;';
+        document.body.appendChild(container);
+      }
+
+      const toast = document.createElement('div');
+      toast.className = 'toast-popup-item';
+      toast.style.cssText = 'background: rgba(15, 23, 42, 0.94); color: #f8fafc; padding: 0.65rem 1.15rem; border-radius: 8px; font-family: Outfit, sans-serif; font-size: 0.85rem; font-weight: 600; border: 1px solid rgba(56, 189, 248, 0.4); box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5); backdrop-filter: blur(8px); display: flex; align-items: center; gap: 8px; pointer-events: auto; transform: translateY(12px); opacity: 0; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);';
+      toast.textContent = message;
+
+      container.appendChild(toast);
+
+      if (typeof requestAnimationFrame !== 'undefined') {
+        requestAnimationFrame(() => {
+          toast.style.transform = 'translateY(0)';
+          toast.style.opacity = '1';
+        });
+      } else {
+        toast.style.transform = 'translateY(0)';
+        toast.style.opacity = '1';
+      }
+
+      setTimeout(() => {
+        toast.style.transform = 'translateY(12px)';
+        toast.style.opacity = '0';
+        setTimeout(() => {
+          if (toast.parentNode) toast.parentNode.removeChild(toast);
+        }, 260);
+      }, duration);
+    } catch (e) {
+      console.log('Toast:', message);
+    }
+  }
 
   // =========================================================================
   // MATEMATIK & PENGIRAAN NAVIGASI NAUTIKA
