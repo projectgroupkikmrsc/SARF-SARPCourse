@@ -967,6 +967,12 @@
     btnCloseTidalModal: document.getElementById('btn-close-tidal-modal'),
     tidalModalBody: document.getElementById('tidal-modal-body'),
     
+    // Modul Jangka Hayat Kemandirian Maritim (IAMSAR Survival Calculator)
+    btnOpenSurvivalModal: document.getElementById('btn-open-survival-modal'),
+    modalSurvivalCalculator: document.getElementById('modal-survival-calculator'),
+    btnCloseSurvivalModal: document.getElementById('btn-close-survival-modal'),
+    survivalModalBody: document.getElementById('survival-modal-body'),
+    
     // Average Surface Wind (ASW)
     aswBearingInput: document.getElementById('asw-bearing-input'),
     aswSpeedInput: document.getElementById('asw-speed-input'),
@@ -5655,6 +5661,411 @@
   }
 
   // =========================================================================
+  // MODUL JANGKA HAYAT KEMANDIRIAN MARITIM (IAMSAR SURVIVAL TIME CALCULATOR)
+  // =========================================================================
+
+  let currentSurvivalParams = {
+    waterTemp: 29.5,
+    airTemp: 31.0,
+    victimType: 'piw_lifejacket',
+    seaState: 'moderate',
+    waterSupply: 'none',
+    sunExposure: 'direct_sun',
+    distressVal: ''
+  };
+
+  function calculateMaritimeSurvivalTime(options) {
+    const waterTemp = typeof options.waterTemp === 'number' ? options.waterTemp : 29.5;
+    const airTemp = typeof options.airTemp === 'number' ? options.airTemp : 31.0;
+    const victimType = options.victimType || 'piw_lifejacket';
+    const seaState = options.seaState || 'moderate';
+    const waterSupply = options.waterSupply || 'none';
+    const sunExposure = options.sunExposure || 'direct_sun';
+    const distressDate = options.distressDate instanceof Date && !isNaN(options.distressDate.getTime()) ? options.distressDate : new Date();
+
+    let baseConsciousHours = 24.0;
+    let baseMaxHours = 48.0;
+    let primaryThreat = '';
+    let threatCategory = 'Tropika (Dehidrasi & Keletihan)';
+    let badgeColor = '#fbbf24';
+
+    // 1. Matriks Suhu Air IAMSAR (Cold Shock & Hypothermia vs Warm Water Dehydration)
+    if (waterTemp <= 4.0) {
+      baseConsciousHours = 0.25; // < 15 minit
+      baseMaxHours = 0.75; // < 45 minit
+      primaryThreat = 'Hipotermia Melampau & Renjatan Air Sejuk Beku (Cold Shock / Cardiac Arrest)';
+      threatCategory = 'Hipotermia Kritikal Akut';
+      badgeColor = '#ef4444';
+    } else if (waterTemp <= 10.0) {
+      baseConsciousHours = 0.5; // ~30 minit
+      baseMaxHours = 1.5;
+      primaryThreat = 'Hipotermia Pantas & Ketidakupayaan Otot Menyelamat (Swimming Failure)';
+      threatCategory = 'Hipotermia Teruk';
+      badgeColor = '#ef4444';
+    } else if (waterTemp <= 15.0) {
+      baseConsciousHours = 1.5;
+      baseMaxHours = 5.0;
+      primaryThreat = 'Kehilangan Haba Badan Pantas & Kekejangan Otot Menyeluruh';
+      threatCategory = 'Hipotermia Sederhana';
+      badgeColor = '#f97316';
+    } else if (waterTemp <= 21.0) {
+      baseConsciousHours = 6.0;
+      baseMaxHours = 16.0;
+      primaryThreat = 'Penurunan Suhu Badan Berperingkat & Keletihan Fizikal';
+      threatCategory = 'Hipotermia Ringan';
+      badgeColor = '#fbbf24';
+    } else if (waterTemp <= 26.0) {
+      baseConsciousHours = 16.0;
+      baseMaxHours = 36.0;
+      primaryThreat = 'Keletihan Otot Berpanjangan & Dehidrasi Awal';
+      threatCategory = 'Sederhana Tropika';
+      badgeColor = '#38bdf8';
+    } else {
+      // Perairan Tropika Malaysia & Serantau (27°C - 32°C)
+      threatCategory = 'Tropika Hangat (Dehidrasi & Kelesuan)';
+      badgeColor = '#34d399';
+
+      if (victimType === 'liferaft_covered') {
+        if (waterSupply === 'sufficient') {
+          baseConsciousHours = 120.0; // 5 hari
+          baseMaxHours = 192.0; // 8 hari
+          primaryThreat = 'Keletihan Mental, Pendedahan Berpanjangan & Kekurangan Nutrisi';
+        } else if (waterSupply === 'rationed') {
+          baseConsciousHours = 72.0; // 3 hari
+          baseMaxHours = 120.0; // 5 hari
+          primaryThreat = 'Dehidrasi Berperingkat di Bawah Kanopi Rakit';
+        } else {
+          baseConsciousHours = 48.0; // 2 hari
+          baseMaxHours = 84.0; // 3.5 hari
+          primaryThreat = 'Dehidrasi Akut Akibat Tiada Sumber Air Tawar';
+        }
+      } else if (victimType === 'liferaft_open') {
+        if (waterSupply === 'sufficient') {
+          baseConsciousHours = 60.0;
+          baseMaxHours = 96.0;
+          primaryThreat = 'Pendedahan Radiasi Matahari Langsung & Dehidrasi';
+        } else {
+          baseConsciousHours = 32.0;
+          baseMaxHours = 54.0;
+          primaryThreat = 'Dehidrasi Pantas & Kelesuan Haba (Heat Exhaustion)';
+        }
+      } else if (victimType === 'piw_immersion') {
+        baseConsciousHours = 36.0;
+        baseMaxHours = 72.0;
+        primaryThreat = 'Dehidrasi, Tekanan Rendaman Air Berpanjangan & Kelesuan';
+      } else if (victimType === 'piw_lifejacket') {
+        baseConsciousHours = 26.0;
+        baseMaxHours = 52.0;
+        primaryThreat = 'Dehidrasi, Keletihan Mengapung, Gigitan Hidupan Laut & Kelesuan Haba';
+      } else if (victimType === 'piw_swimming') {
+        baseConsciousHours = 7.0;
+        baseMaxHours = 16.0;
+        primaryThreat = 'Keletihan Otot Mengayuh Air (*Muscle Failure*) & Lemas (*Drowning*)';
+        badgeColor = '#ef4444';
+      } else if (victimType === 'piw_vulnerable') {
+        baseConsciousHours = 5.0;
+        baseMaxHours = 12.0;
+        primaryThreat = 'Kelesuan Haba/Kekurangan Daya Tahan Pantas & Lemas Sekunder';
+        badgeColor = '#ef4444';
+      }
+    }
+
+    // 2. Faktor Pendedahan Terik Matahari & Suhu Udara
+    let sunFactor = 1.0;
+    if (sunExposure === 'direct_sun') {
+      sunFactor = victimType.startsWith('liferaft') ? 0.88 : 0.78;
+    } else {
+      sunFactor = 1.08;
+    }
+
+    // 3. Faktor Keadaan Laut & Ombak (Sea State)
+    let seaFactor = 1.0;
+    if (seaState === 'calm') {
+      seaFactor = 1.06;
+    } else if (seaState === 'rough') {
+      seaFactor = victimType.startsWith('liferaft') ? 0.85 : 0.58; // Ombak kasar menenggelamkan mangsa tanpa rakit
+    }
+
+    // Pengiraan Akhir
+    const finalConsciousHours = Math.max(0.2, Math.round(baseConsciousHours * sunFactor * seaFactor * 10) / 10);
+    const finalMaxHours = Math.max(0.5, Math.round(baseMaxHours * sunFactor * seaFactor * 10) / 10);
+
+    const consciousDeadlineDate = new Date(distressDate.getTime() + finalConsciousHours * 3600000);
+    const deadlineDate = new Date(distressDate.getTime() + finalMaxHours * 3600000);
+
+    // Pengiraan Masa Berlalu
+    const now = new Date();
+    const elapsedHours = Math.max(0, Math.round(((now.getTime() - distressDate.getTime()) / 3600000) * 10) / 10);
+    const remainingHours = Math.max(0, Math.round((finalMaxHours - elapsedHours) * 10) / 10);
+    const remainingConsciousHours = Math.max(0, Math.round((finalConsciousHours - elapsedHours) * 10) / 10);
+
+    const elapsedPct = Math.min(100, Math.max(0, Math.round((elapsedHours / finalMaxHours) * 100)));
+
+    return {
+      consciousHours: finalConsciousHours,
+      maxSurvivalHours: finalMaxHours,
+      consciousDeadlineDate,
+      deadlineDate,
+      elapsedHours,
+      remainingHours,
+      remainingConsciousHours,
+      elapsedPct,
+      primaryThreat,
+      threatCategory,
+      badgeColor
+    };
+  }
+
+  function openSurvivalModal() {
+    if (!el.modalSurvivalCalculator) return;
+
+    // Auto-sync suhu air dari metocean terkini jika wujud
+    if (state.metoceanHourly && state.metoceanHourly.marineHours && state.metoceanHourly.marineHours.length > 0) {
+      const firstHour = state.metoceanHourly.marineHours[0];
+      if (typeof firstHour.waveHeight === 'number') {
+        if (firstHour.waveHeight < 1.0) currentSurvivalParams.seaState = 'calm';
+        else if (firstHour.waveHeight <= 2.5) currentSurvivalParams.seaState = 'moderate';
+        else currentSurvivalParams.seaState = 'rough';
+      }
+    }
+
+    if (el.distressDateTimeInput && el.distressDateTimeInput.value) {
+      currentSurvivalParams.distressVal = el.distressDateTimeInput.value;
+    }
+
+    renderSurvivalModalContent();
+    el.modalSurvivalCalculator.classList.add('active');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeSurvivalModal() {
+    if (!el.modalSurvivalCalculator) return;
+    el.modalSurvivalCalculator.classList.remove('active');
+    document.body.style.overflow = '';
+  }
+
+  function renderSurvivalModalContent() {
+    if (!el.survivalModalBody) return;
+
+    const distressVal = currentSurvivalParams.distressVal || (el.distressDateTimeInput ? el.distressDateTimeInput.value : '');
+    let distressDate = distressVal ? new Date(distressVal) : new Date();
+    if (isNaN(distressDate.getTime())) distressDate = new Date();
+
+    const calc = calculateMaritimeSurvivalTime({
+      waterTemp: parseFloat(currentSurvivalParams.waterTemp) || 29.5,
+      airTemp: parseFloat(currentSurvivalParams.airTemp) || 31.0,
+      victimType: currentSurvivalParams.victimType || 'piw_lifejacket',
+      seaState: currentSurvivalParams.seaState || 'moderate',
+      waterSupply: currentSurvivalParams.waterSupply || 'none',
+      sunExposure: currentSurvivalParams.sunExposure || 'direct_sun',
+      distressDate
+    });
+
+    const formatDt = (d) => {
+      return d.toLocaleDateString('ms-MY', { day: '2-digit', month: 'short', year: 'numeric' }) + ', ' +
+             d.toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit', hour12: false }) + 'H';
+    };
+
+    const statusBadge = calc.remainingHours <= 0 ?
+      `<span style="background: rgba(239, 68, 68, 0.2); color: #ef4444; padding: 0.2rem 0.55rem; border-radius: 4px; font-weight: 800; font-size: 0.72rem; border: 1px solid rgba(239, 68, 68, 0.4);">🚨 MELEBIHI HAD SURVIVAL</span>` :
+      (calc.remainingConsciousHours <= 0 ?
+        `<span style="background: rgba(245, 158, 11, 0.2); color: #f59e0b; padding: 0.2rem 0.55rem; border-radius: 4px; font-weight: 800; font-size: 0.72rem; border: 1px solid rgba(245, 158, 11, 0.4);">⚠️ HILANG KESEDARAN / KRITIKAL</span>` :
+        `<span style="background: rgba(52, 211, 153, 0.2); color: #34d399; padding: 0.2rem 0.55rem; border-radius: 4px; font-weight: 800; font-size: 0.72rem; border: 1px solid rgba(52, 211, 153, 0.4);">⏱️ JENDELA MASA AKTIF</span>`);
+
+    const html = `
+      <div style="display: flex; flex-direction: column; gap: 0.9rem; font-family: 'Outfit', sans-serif;">
+        <!-- Header Info Banner -->
+        <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.25); border-radius: var(--radius-sm); padding: 0.65rem 0.85rem; font-size: 0.78rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.4rem;">
+          <div>
+            <span style="color: var(--text-muted);">Zon Perairan:</span> <strong style="color: #fbbf24;">${calc.threatCategory}</strong>
+          </div>
+          <div>
+            ${statusBadge}
+          </div>
+        </div>
+
+        <!-- Borang Parameter Kemandirian -->
+        <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.85rem; display: flex; flex-direction: column; gap: 0.65rem;">
+          <h4 style="margin: 0; font-size: 0.82rem; color: #fbbf24; display: flex; align-items: center; gap: 0.35rem;">
+            <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" fill="none" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            <span>Parameter Keadaan Mangsa &amp; Persekitaran Maritim</span>
+          </h4>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.6rem;">
+            <!-- Suhu Air & Udara -->
+            <div>
+              <label style="display: block; font-size: 0.72rem; color: var(--text-muted); margin-bottom: 0.2rem; font-weight: 600;">Suhu Permukaan Air Laut (°C):</label>
+              <input type="number" id="srv-water-temp" step="0.5" min="0" max="40" value="${currentSurvivalParams.waterTemp}" class="input-control" style="width: 100%; font-size: 0.8rem; padding: 0.35rem 0.5rem; background: var(--bg-input); color: var(--text-main); border: 1px solid var(--border-color); border-radius: 4px;">
+            </div>
+            <div>
+              <label style="display: block; font-size: 0.72rem; color: var(--text-muted); margin-bottom: 0.2rem; font-weight: 600;">Suhu Udara Sekitar (°C):</label>
+              <input type="number" id="srv-air-temp" step="0.5" min="0" max="50" value="${currentSurvivalParams.airTemp}" class="input-control" style="width: 100%; font-size: 0.8rem; padding: 0.35rem 0.5rem; background: var(--bg-input); color: var(--text-main); border: 1px solid var(--border-color); border-radius: 4px;">
+            </div>
+
+            <!-- Kategori Mangsa & Kelengkapan -->
+            <div style="grid-column: span 2;">
+              <label style="display: block; font-size: 0.72rem; color: var(--text-muted); margin-bottom: 0.2rem; font-weight: 600;">Status &amp; Kelengkapan Mangsa (IAMSAR Category):</label>
+              <select id="srv-victim-type" class="input-select" style="width: 100%; font-size: 0.8rem; padding: 0.35rem 0.5rem; background: var(--bg-input); color: var(--text-main); border: 1px solid var(--border-color); border-radius: 4px; font-weight: 600;">
+                <option value="liferaft_covered" ${currentSurvivalParams.victimType === 'liferaft_covered' ? 'selected' : ''}>🛶 Rakit Keselamatan Berkanopi (Covered Liferaft)</option>
+                <option value="liferaft_open" ${currentSurvivalParams.victimType === 'liferaft_open' ? 'selected' : ''}>🛶 Rakit Terbuka Tanpa Bumbung (Open Liferaft)</option>
+                <option value="piw_lifejacket" ${currentSurvivalParams.victimType === 'piw_lifejacket' ? 'selected' : ''}>🦺 PIW Memakai Jaket Keselamatan (Lifejacket / PFD)</option>
+                <option value="piw_immersion" ${currentSurvivalParams.victimType === 'piw_immersion' ? 'selected' : ''}>🤿 PIW Memakai Pakaian Celup Haba (Immersion Suit)</option>
+                <option value="piw_swimming" ${currentSurvivalParams.victimType === 'piw_swimming' ? 'selected' : ''}>🏊 PIW Tanpa Jaket Keselamatan (Berenang / Treading Water)</option>
+                <option value="piw_vulnerable" ${currentSurvivalParams.victimType === 'piw_vulnerable' ? 'selected' : ''}>⚠️ Kanak-kanak / Warga Emas / Mangsa Cedera</option>
+              </select>
+            </div>
+
+            <!-- Keadaan Laut & Ombak -->
+            <div>
+              <label style="display: block; font-size: 0.72rem; color: var(--text-muted); margin-bottom: 0.2rem; font-weight: 600;">Keadaan Laut &amp; Ombak (Sea State):</label>
+              <select id="srv-sea-state" class="input-select" style="width: 100%; font-size: 0.8rem; padding: 0.35rem 0.5rem; background: var(--bg-input); color: var(--text-main); border: 1px solid var(--border-color); border-radius: 4px;">
+                <option value="calm" ${currentSurvivalParams.seaState === 'calm' ? 'selected' : ''}>🌊 Tenang (Ombak &lt; 1.0 m / Sea State 0-2)</option>
+                <option value="moderate" ${currentSurvivalParams.seaState === 'moderate' ? 'selected' : ''}>🌊 Sederhana (Ombak 1.0 - 2.5 m / Sea State 3-4)</option>
+                <option value="rough" ${currentSurvivalParams.seaState === 'rough' ? 'selected' : ''}>🌊 Bergelora / Kasar (Ombak &gt; 2.5 m / Sea State 5+)</option>
+              </select>
+            </div>
+
+            <!-- Bekalan Air Minuman -->
+            <div>
+              <label style="display: block; font-size: 0.72rem; color: var(--text-muted); margin-bottom: 0.2rem; font-weight: 600;">Bekalan Air Tawar / Minuman:</label>
+              <select id="srv-water-supply" class="input-select" style="width: 100%; font-size: 0.8rem; padding: 0.35rem 0.5rem; background: var(--bg-input); color: var(--text-main); border: 1px solid var(--border-color); border-radius: 4px;">
+                <option value="none" ${currentSurvivalParams.waterSupply === 'none' ? 'selected' : ''}>❌ Tiada bekalan air langsung</option>
+                <option value="rationed" ${currentSurvivalParams.waterSupply === 'rationed' ? 'selected' : ''}>💧 Bekalan terhad / Kit kecemasan</option>
+                <option value="sufficient" ${currentSurvivalParams.waterSupply === 'sufficient' ? 'selected' : ''}>🚰 Bekalan air mencukupi (Liferaft Pack)</option>
+              </select>
+            </div>
+
+            <!-- Pendedahan Terik Matahari -->
+            <div>
+              <label style="display: block; font-size: 0.72rem; color: var(--text-muted); margin-bottom: 0.2rem; font-weight: 600;">Pendedahan Cahaya / Terik Matahari:</label>
+              <select id="srv-sun-exposure" class="input-select" style="width: 100%; font-size: 0.8rem; padding: 0.35rem 0.5rem; background: var(--bg-input); color: var(--text-main); border: 1px solid var(--border-color); border-radius: 4px;">
+                <option value="direct_sun" ${currentSurvivalParams.sunExposure === 'direct_sun' ? 'selected' : ''}>☀️ Terdedah terus terik matahari tropika</option>
+                <option value="shaded" ${currentSurvivalParams.sunExposure === 'shaded' ? 'selected' : ''}>☁️ Berlindung / Redup / Mendung / Malam</option>
+              </select>
+            </div>
+
+            <!-- Waktu Kejadian Distress -->
+            <div>
+              <label style="display: block; font-size: 0.72rem; color: var(--text-muted); margin-bottom: 0.2rem; font-weight: 600;">Waktu Kejadian (Distress DateTime):</label>
+              <input type="datetime-local" id="srv-distress-dt" value="${distressVal}" class="input-control" style="width: 100%; font-size: 0.78rem; padding: 0.35rem 0.5rem; background: var(--bg-input); color: var(--text-main); border: 1px solid var(--border-color); border-radius: 4px;">
+            </div>
+          </div>
+        </div>
+
+        <!-- Kad Hasil Keputusan Jangka Hayat -->
+        <div style="background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: var(--radius-sm); padding: 0.85rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <h4 style="margin: 0; font-size: 0.82rem; color: #fbbf24;">
+              📊 Anggaran Jangka Hayat Kemandirian (Survival Time Output):
+            </h4>
+            <span style="font-size: 0.72rem; color: var(--text-muted);">
+              Masa Berlalu: <strong>${calc.elapsedHours} Jam</strong>
+            </span>
+          </div>
+
+          <!-- Progress Bar Masa Berlalu vs Baki -->
+          <div style="margin-bottom: 0.75rem;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.25rem;">
+              <span>Garis Masa Survival (${calc.elapsedPct}% digunakan)</span>
+              <span>Baki Had Hayat: <strong style="color: ${calc.remainingHours > 0 ? '#34d399' : '#ef4444'};">${calc.remainingHours} Jam</strong></span>
+            </div>
+            <div style="height: 7px; background: rgba(255, 255, 255, 0.1); border-radius: 4px; overflow: hidden;">
+              <div style="height: 100%; width: ${calc.elapsedPct}%; background: ${calc.elapsedPct > 80 ? '#ef4444' : (calc.elapsedPct > 50 ? '#f59e0b' : '#34d399')}; transition: width 0.3s ease;"></div>
+            </div>
+          </div>
+
+          <!-- Grid Statistik 3 Kad -->
+          <div class="metocean-stat-grid" style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.5rem;">
+            <div class="metocean-stat-card" style="padding: 0.55rem; border-color: rgba(56, 189, 248, 0.3);">
+              <div class="metocean-stat-title" style="color: #38bdf8;">Masa Masih Sedar</div>
+              <div class="metocean-stat-value" style="font-size: 1.15rem; color: #38bdf8;">${calc.consciousHours} Jam</div>
+              <div style="font-size: 0.65rem; color: var(--text-muted); margin-top: 0.2rem;">
+                Tamat: <strong>${formatDt(calc.consciousDeadlineDate)}</strong>
+              </div>
+            </div>
+
+            <div class="metocean-stat-card" style="padding: 0.55rem; border-color: rgba(251, 191, 36, 0.3);">
+              <div class="metocean-stat-title" style="color: #fbbf24;">Had Hayat Maksimum</div>
+              <div class="metocean-stat-value" style="font-size: 1.15rem; color: #fbbf24;">${calc.maxSurvivalHours} Jam</div>
+              <div style="font-size: 0.65rem; color: var(--text-muted); margin-top: 0.2rem;">
+                Tamat: <strong>${formatDt(calc.deadlineDate)}</strong>
+              </div>
+            </div>
+
+            <div class="metocean-stat-card" style="padding: 0.55rem; border-color: rgba(52, 211, 153, 0.3);">
+              <div class="metocean-stat-title" style="color: #34d399;">Baki Tempoh Respons</div>
+              <div class="metocean-stat-value" style="font-size: 1.15rem; color: ${calc.remainingConsciousHours > 0 ? '#34d399' : '#ef4444'};">
+                ${calc.remainingConsciousHours > 0 ? `${calc.remainingConsciousHours}j` : 'Kritikal'}
+              </div>
+              <div style="font-size: 0.65rem; color: var(--text-muted); margin-top: 0.2rem;">
+                ${calc.remainingConsciousHours > 0 ? 'Mangsa berupaya melambai/memberi respon' : 'Mangsa mungkin tidak sedar'}
+              </div>
+            </div>
+          </div>
+
+          <!-- Ancaman Utama -->
+          <div style="margin-top: 0.65rem; background: rgba(239, 68, 68, 0.08); border-left: 3px solid #ef4444; padding: 0.45rem 0.65rem; font-size: 0.74rem;">
+            <span style="color: #f87171; font-weight: 700;">⚠️ Ancaman Fisiologi Utama:</span>
+            <span style="color: var(--text-main); margin-left: 0.3rem;">${calc.primaryThreat}</span>
+          </div>
+        </div>
+
+        <!-- Panduan Pertolongan Cemas & Medevac (First Aid Checklist) -->
+        <div style="background: rgba(14, 165, 233, 0.06); border: 1px solid rgba(14, 165, 233, 0.2); border-radius: var(--radius-sm); padding: 0.75rem;">
+          <h4 style="margin: 0 0 0.35rem 0; font-size: 0.78rem; color: #38bdf8; display: flex; align-items: center; gap: 0.35rem;">
+            <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            <span>Protokol Menyelamat &amp; Rawatan Medevac (IAMSAR Vol II App. H):</span>
+          </h4>
+          <ul style="margin: 0; padding-left: 1.15rem; font-size: 0.72rem; color: var(--text-muted); line-height: 1.45;">
+            <li><strong>Kedudukan Menaikkan Mangsa (Horizontal Recovery):</strong> Naikkan mangsa dalam keadaan baring/mendatar bagi mengelakkan renjatan penurunan tekanan darah mendadak (*Post-rescue Hydrostatic Collapse*).</li>
+            <li><strong>Rawatan Dehidrasi:</strong> JANGAN berikan air masin atau minuman berpemanis pekat. Berikan air tawar sedikit demi sedikit secara berselang sekiranya mangsa sedar sepenuhnya.</li>
+            <li><strong>Pencegahan Hipotermia Susulan:</strong> Tanggalkan pakaian basah, balut dengan selimut termal kering, dan lindungi daripada tiupan angin kuat (*passive external re-warming*).</li>
+          </ul>
+        </div>
+
+        <!-- Footer Actions -->
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.2rem;">
+          <button type="button" class="btn btn-primary" id="btn-done-survival-modal" style="padding: 0.45rem 1.2rem; font-size: 0.78rem; background: #fbbf24; color: #0f172a; font-weight: 800;">
+            <span>Tutup &amp; Kembali ke Operasi SAR</span>
+          </button>
+        </div>
+      </div>
+    `;
+
+    el.survivalModalBody.innerHTML = html;
+
+    // Pasang Event Listener Interaktif untuk live update
+    const bindLiveUpdate = (id, key) => {
+      const elem = document.getElementById(id);
+      if (elem) {
+        elem.addEventListener('change', (e) => {
+          currentSurvivalParams[key] = e.target.value;
+          renderSurvivalModalContent();
+        });
+        if (elem.tagName === 'INPUT') {
+          elem.addEventListener('input', (e) => {
+            currentSurvivalParams[key] = e.target.value;
+            renderSurvivalModalContent();
+          });
+        }
+      }
+    };
+
+    bindLiveUpdate('srv-water-temp', 'waterTemp');
+    bindLiveUpdate('srv-air-temp', 'airTemp');
+    bindLiveUpdate('srv-victim-type', 'victimType');
+    bindLiveUpdate('srv-sea-state', 'seaState');
+    bindLiveUpdate('srv-water-supply', 'waterSupply');
+    bindLiveUpdate('srv-sun-exposure', 'sunExposure');
+    bindLiveUpdate('srv-distress-dt', 'distressVal');
+
+    const btnDone = document.getElementById('btn-done-survival-modal');
+    if (btnDone) {
+      btnDone.addEventListener('click', closeSurvivalModal);
+    }
+  }
+
+  // =========================================================================
   // METOCEAN DATA AUTO-FETCH (OPEN-METEO WEATHER & MARINE SATELLITE API)
   // =========================================================================
 
@@ -8880,6 +9291,27 @@
       el.modalTidalCurrent.addEventListener('click', (e) => {
         if (e.target === el.modalTidalCurrent) {
           closeTidalModal();
+        }
+      });
+    }
+
+    // Butang & Modal Kalkulator Survival Maritim (IAMSAR)
+    if (el.btnOpenSurvivalModal) {
+      el.btnOpenSurvivalModal.addEventListener('click', () => {
+        openSurvivalModal();
+      });
+    }
+
+    if (el.btnCloseSurvivalModal) {
+      el.btnCloseSurvivalModal.addEventListener('click', () => {
+        closeSurvivalModal();
+      });
+    }
+
+    if (el.modalSurvivalCalculator) {
+      el.modalSurvivalCalculator.addEventListener('click', (e) => {
+        if (e.target === el.modalSurvivalCalculator) {
+          closeSurvivalModal();
         }
       });
     }

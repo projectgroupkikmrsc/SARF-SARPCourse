@@ -56,9 +56,9 @@
           <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" fill="none" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
           <span>Contoh Latihan</span>
         </button>
-        <button id="btn-export-img" class="btn btn-outline" title="Muat turun imej carta sebagai PNG">
-          <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" fill="none" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          <span>Simpan Imej</span>
+        <button type="button" id="btn-open-survival-modal" class="btn btn-outline" title="Buka Kalkulator Jangka Hayat Kemandirian Maritim (IAMSAR Survival Time)" style="border-color: #f59e0b; color: #f59e0b; font-weight: 700;">
+          <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" fill="none" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span>⏱️ Kalkulator Survival</span>
         </button>
         <button id="btn-open-iamsar-tables" class="btn btn-outline" title="Buka Jadual Rujukan IAMSAR (N-1 hingga N-8)" style="border-color: #38bdf8; color: #38bdf8;">
           <svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" fill="none" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
@@ -3417,6 +3417,24 @@
     </div>
   </div>
 
+  <!-- =========================================================
+       MODAL: KALKULATOR JANGKA HAYAT KEMANDIRIAN (SURVIVAL TIME)
+       ========================================================= -->
+  <div class="iamsar-modal-overlay" id="modal-survival-calculator">
+    <div class="iamsar-modal-container" style="max-width: 760px;">
+      <div class="iamsar-modal-header" style="border-bottom-color: rgba(245, 158, 11, 0.3);">
+        <h3 style="color: #fbbf24;">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span>Kalkulator Jangka Hayat Kemandirian Maritim (IAMSAR)</span>
+        </h3>
+        <button type="button" class="drawer-close-btn" id="btn-close-survival-modal" title="Tutup Modal">&times;</button>
+      </div>
+      <div class="iamsar-modal-body" id="survival-modal-body" style="padding: 1.15rem 1.35rem; max-height: 80vh; overflow-y: auto;">
+        <!-- Injected via JavaScript -->
+      </div>
+    </div>
+  </div>
+
   <!-- Leaflet.js JS with Fallback -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <script>
@@ -3427,7 +3445,7 @@
   <!-- Data Garis Pantai & Poligon Darat (Offline Land-Sea Mask) -->
   <script src="land_data.js"></script>
   <!-- Script Utama -->
-  <script src="app.js?v=3.7"></script>
+  <script src="app.js?v=3.8"></script>
   <script>
     (function() {
       try {
