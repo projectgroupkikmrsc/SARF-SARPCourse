@@ -8854,7 +8854,11 @@
     ctx.strokeStyle = color;
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.roundRect(x - bgW / 2, y - bgH / 2, bgW, bgH, 4);
+    if (typeof ctx.roundRect === 'function') {
+      ctx.roundRect(x - bgW / 2, y - bgH / 2, bgW, bgH, 4);
+    } else {
+      ctx.rect(x - bgW / 2, y - bgH / 2, bgW, bgH);
+    }
     ctx.fill();
     ctx.stroke();
 
@@ -11059,7 +11063,7 @@
     deleteScVector
   };
 
-  document.addEventListener('DOMContentLoaded', () => {
+  function initApp() {
     const hasRestoredState = loadAppState();
     setupEventListeners();
     initTheme();
@@ -11149,6 +11153,12 @@
       ensureGridCanvasReady();
       setTimeout(ensureGridCanvasReady, 100);
     });
-  });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initApp);
+  } else {
+    initApp();
+  }
 
 })();
