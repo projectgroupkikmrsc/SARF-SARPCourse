@@ -8667,7 +8667,7 @@
     const stepPx = Math.max(10, stepNM * ppm);
 
     ctx.lineWidth = 1;
-    ctx.strokeStyle = isLight ? 'rgba(2, 132, 199, 0.16)' : 'rgba(56, 189, 248, 0.08)';
+    ctx.strokeStyle = isLight ? 'rgba(2, 132, 199, 0.28)' : 'rgba(56, 189, 248, 0.22)';
     ctx.beginPath();
 
     const startX = ((origin.x % stepPx) + stepPx) % stepPx;
@@ -8683,7 +8683,7 @@
     }
     ctx.stroke();
 
-    ctx.fillStyle = isLight ? 'rgba(51, 65, 85, 0.75)' : 'rgba(148, 163, 184, 0.45)';
+    ctx.fillStyle = isLight ? 'rgba(51, 65, 85, 0.85)' : 'rgba(148, 163, 184, 0.75)';
     ctx.font = '10px "JetBrains Mono", monospace';
 
     for (let x = startX; x < width; x += stepPx) {
@@ -8707,8 +8707,8 @@
     const origin = getOriginScreenPos();
     const isLight = document.documentElement.getAttribute('data-theme') === 'light';
 
-    ctx.lineWidth = 1.5;
-    ctx.strokeStyle = isLight ? 'rgba(2, 132, 199, 0.45)' : 'rgba(56, 189, 248, 0.35)';
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = isLight ? 'rgba(2, 132, 199, 0.75)' : 'rgba(56, 189, 248, 0.65)';
 
     ctx.beginPath();
     ctx.moveTo(0, origin.y);
