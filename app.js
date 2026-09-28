@@ -4264,6 +4264,11 @@
       }
       if (el.vectorViewToggle) el.vectorViewToggle.style.display = 'inline-flex';
       switchDisplayMode('grid');
+      if (state.vectors && state.vectors.length > 0) {
+        autoFitView();
+      } else {
+        resetPanZoom();
+      }
     } else if (tabName === 'datum') {
       closePlanningDrawer();
       if (el.vectorViewToggle) el.vectorViewToggle.style.display = 'none';
@@ -8427,8 +8432,8 @@
 
   function getOriginScreenPos() {
     const rect = el.canvasWrapper ? el.canvasWrapper.getBoundingClientRect() : { width: 0, height: 0 };
-    const w = rect.width > 0 ? rect.width : (el.canvas ? (el.canvas.clientWidth || el.canvas.width || 800) : 800);
-    const h = rect.height > 0 ? rect.height : (el.canvas ? (el.canvas.clientHeight || el.canvas.height || 600) : 600);
+    const w = rect.width > 0 ? rect.width : (el.canvasWrapper ? (el.canvasWrapper.clientWidth || 800) : 800);
+    const h = rect.height > 0 ? rect.height : (el.canvasWrapper ? (el.canvasWrapper.clientHeight || 600) : 600);
     const panX = (typeof state.view.panX === 'number' && !isNaN(state.view.panX)) ? state.view.panX : 0;
     const panY = (typeof state.view.panY === 'number' && !isNaN(state.view.panY)) ? state.view.panY : 0;
     return {
@@ -10110,19 +10115,13 @@
       }
     });
 
-    // Dynamic Observer untuk Canvas Wrapper (Auto-render & Pusatkan Origin bila layout siap)
+    // Dynamic Observer untuk Canvas Wrapper (Auto-render bila layout siap)
     if (window.ResizeObserver && el.canvasWrapper) {
-      let initialSized = false;
       const ro = new ResizeObserver((entries) => {
         for (const entry of entries) {
           if (entry.contentRect.width > 0 && entry.contentRect.height > 0) {
             if (state.displayMode === 'grid') {
-              if (!initialSized) {
-                initialSized = true;
-                resetPanZoom();
-              } else {
-                resizeCanvas();
-              }
+              resizeCanvas();
             }
           }
         }
@@ -11125,23 +11124,30 @@
     updateFlowButtonsUI();
     syncMapOverlaysVisibility();
 
-    // Jaminan render graf awal dengan Pusatkan Origin (0,0) pada permulaan muat turun halaman
-    const triggerCenterOrigin = () => {
-      if (state.displayMode === 'grid') {
+    // Jaminan render graf awal pada permulaan muat turun / refresh halaman
+    const ensureGridCanvasReady = () => {
+      if (state.activeTab !== 'vector' && state.displayMode !== 'grid') return;
+      state.displayMode = 'grid';
+      if (el.canvas) el.canvas.style.display = 'block';
+      if (el.mapContainer) el.mapContainer.style.display = 'none';
+      resizeCanvas();
+      if (state.vectors && state.vectors.length > 0) {
+        autoFitView();
+      } else {
         resetPanZoom();
       }
     };
 
-    triggerCenterOrigin();
-    requestAnimationFrame(triggerCenterOrigin);
-    setTimeout(triggerCenterOrigin, 50);
-    setTimeout(triggerCenterOrigin, 150);
-    setTimeout(triggerCenterOrigin, 300);
-    setTimeout(triggerCenterOrigin, 600);
+    ensureGridCanvasReady();
+    requestAnimationFrame(ensureGridCanvasReady);
+    setTimeout(ensureGridCanvasReady, 50);
+    setTimeout(ensureGridCanvasReady, 150);
+    setTimeout(ensureGridCanvasReady, 300);
+    setTimeout(ensureGridCanvasReady, 600);
 
     window.addEventListener('load', () => {
-      triggerCenterOrigin();
-      setTimeout(triggerCenterOrigin, 100);
+      ensureGridCanvasReady();
+      setTimeout(ensureGridCanvasReady, 100);
     });
   });
 
