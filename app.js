@@ -5418,16 +5418,22 @@
 
     const distressVal = el.distressDateTimeInput ? el.distressDateTimeInput.value : '';
     const datumVal = el.datumDateTimeInput ? el.datumDateTimeInput.value : '';
-    let startDate = distressVal ? new Date(distressVal) : new Date();
-    let endDate = datumVal ? new Date(datumVal) : new Date(startDate.getTime() + 86400000 * 4); // Lalai: 4 hari
+    const intervalVal = el.datumIntervalInput ? parseFloat(el.datumIntervalInput.value) : NaN;
 
+    let startDate = distressVal ? new Date(distressVal) : new Date();
     if (isNaN(startDate.getTime())) startDate = new Date();
-    if (isNaN(endDate.getTime()) || endDate <= startDate) {
-      endDate = new Date(startDate.getTime() + 86400000 * 4);
+
+    let endDate = datumVal ? new Date(datumVal) : null;
+    if (!endDate || isNaN(endDate.getTime()) || endDate <= startDate) {
+      if (!isNaN(intervalVal) && intervalVal > 0) {
+        endDate = new Date(startDate.getTime() + intervalVal * 3600000);
+      } else {
+        endDate = new Date(startDate.getTime() + 3600000 * 6); // Lalai jika belum diisi: 6 jam
+      }
     }
 
-    const diffHours = Math.max(1, Math.round(((endDate.getTime() - startDate.getTime()) / 3600000) * 10) / 10);
-    const diffDays = (diffHours / 24.0).toFixed(1);
+    const diffHours = Math.max(0.5, Math.round(((endDate.getTime() - startDate.getTime()) / 3600000) * 10) / 10);
+    const timeLabel = diffHours >= 24 ? `${diffHours} Jam (~${(diffHours / 24.0).toFixed(1)} Hari)` : `${diffHours} Jam`;
 
     const calcResult = computeMultiDayTidalStreamSeries(currentStation, startDate, diffHours);
     currentTidalCalculation = calcResult;
@@ -5442,7 +5448,7 @@
             <span style="color: var(--text-muted);">Lokasi LKP:</span> <strong>${formatCoordinate(lat, true)} | ${formatCoordinate(lon, false)}</strong>
           </div>
           <div>
-            <span style="color: var(--text-muted);">Sela Operasi SAR:</span> <strong>${diffHours} Jam (~${diffDays} Hari)</strong>
+            <span style="color: var(--text-muted);">Sela Waktu (Distress &rarr; Datum):</span> <strong>${timeLabel}</strong>
           </div>
         </div>
 
@@ -5700,8 +5706,8 @@
               <strong style="color: #38bdf8; font-size: 0.86rem;">4. Arus Pasang Surut Stesen Pesisir (Tidal Current - TC)</strong>
             </div>
             <div style="font-size: 0.78rem; color: var(--text-muted); line-height: 1.5;">
-              <div><strong>Pangkalan Data:</strong> Stesen tolok pasang surut rasmi Malaysia (PHN/JUPEM) merangkumi Pantai Timur, Selat Melaka, Sarawak, dan Sabah dengan fungsi auto-kesan stesen terdekat dari LKP.</div>
-              <div><strong>Kiraan Multi-Hari:</strong> Menggunakan model harmonik astronomi (Semi-Diurnal 12.4j &amp; Diurnal 24.8j) dan unjuran siri masa jam-demi-jam (Flood &amp; Ebb Streams) sehingga 96 jam (4 hari) untuk menghasilkan anjakan paduan bersih <em>(Residual Tidal Drift)</em>.</div>
+              <div><strong>Pangkalan Data:</strong> Stesen tolok pasang surut rasmi Malaysia (PHN/JUPEM) merangkumi Pantai Timur, Selat Melaka, Sarawak, dan Sabah dengan fungsi auto-kesan stesen terdekat dari koordinat LKP.</div>
+              <div><strong>Kiraan Dinamik Sela Masa:</strong> Menggunakan model harmonik astronomi (Semi-Diurnal 12.4j &amp; Diurnal 24.8j) dan unjuran siri masa jam-demi-jam (Flood &amp; Ebb Streams) mengikut tempoh sebenar <em>Distress Time &rarr; Datum Time</em> untuk menghasilkan anjakan paduan bersih <em>(Residual Tidal Drift)</em>.</div>
             </div>
           </div>
         </div>
