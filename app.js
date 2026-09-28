@@ -7928,7 +7928,7 @@
       if (el.mcTimelineBar) el.mcTimelineBar.style.display = 'flex';
       if (el.mapOverlayControls) el.mapOverlayControls.style.display = 'block';
       if (el.mapFlowControls) el.mapFlowControls.style.display = 'flex';
-      el.gridControls.style.display = 'none';
+      el.gridControls.style.display = 'flex';
       el.compassBadge.style.display = 'none';
 
       el.chartTipText.textContent = 'Peta Laut & Terestrial (OSM + OpenSeaMap + Esri Ocean) • Skrol untuk Zum Peta';
@@ -9087,6 +9087,34 @@
   // =========================================================================
 
   function autoFitView() {
+    if (state.displayMode === 'map') {
+      if (leafletMap) {
+        const bounds = [[state.originGeo.lat, state.originGeo.lon]];
+        if (state.finalDatum) {
+          if (state.finalDatum.datumLatL && state.finalDatum.datumLonL) {
+            bounds.push([state.finalDatum.datumLatL, state.finalDatum.datumLonL]);
+          }
+          if (state.finalDatum.datumLatR && state.finalDatum.datumLonR) {
+            bounds.push([state.finalDatum.datumLatR, state.finalDatum.datumLonR]);
+          }
+          if (state.finalDatum.datumLat && state.finalDatum.datumLon) {
+            bounds.push([state.finalDatum.datumLat, state.finalDatum.datumLon]);
+          }
+        }
+        if (state.planning && state.planning.waypoints && state.planning.waypoints.length > 0) {
+          state.planning.waypoints.forEach(wp => {
+            if (wp.lat && wp.lon) bounds.push([wp.lat, wp.lon]);
+          });
+        }
+        if (bounds.length > 1) {
+          leafletMap.fitBounds(bounds, { padding: [50, 50], maxZoom: 13 });
+        } else {
+          leafletMap.setView([state.originGeo.lat, state.originGeo.lon], 8);
+        }
+      }
+      return;
+    }
+
     if (!state.points || state.points.length <= 1) {
       resetPanZoom();
       return;
@@ -9134,6 +9162,12 @@
   }
 
   function resetPanZoom() {
+    if (state.displayMode === 'map') {
+      if (leafletMap) {
+        leafletMap.setView([state.originGeo.lat, state.originGeo.lon], 8);
+      }
+      return;
+    }
     state.view.zoom = 1.0;
     state.view.panX = 0;
     state.view.panY = 0;
@@ -9141,6 +9175,17 @@
   }
 
   function zoomBy(factor, centerX, centerY) {
+    if (state.displayMode === 'map') {
+      if (leafletMap) {
+        if (factor > 1) {
+          leafletMap.zoomIn();
+        } else {
+          leafletMap.zoomOut();
+        }
+      }
+      return;
+    }
+
     const oldZoom = (typeof state.view.zoom === 'number' && !isNaN(state.view.zoom) && state.view.zoom > 0.05) ? state.view.zoom : 1.0;
     const newZoom = Math.max(0.15, Math.min(oldZoom * factor, 12));
 
@@ -10060,6 +10105,9 @@
         state.vectorViewMode = 'graph';
         el.btnViewGraph.classList.add('active');
         if (el.btnViewMoboard) el.btnViewMoboard.classList.remove('active');
+        if (state.displayMode !== 'grid') {
+          switchDisplayMode('grid');
+        }
         saveAppState();
         drawChart();
       });
@@ -10070,6 +10118,9 @@
         state.vectorViewMode = 'moboard';
         el.btnViewMoboard.classList.add('active');
         if (el.btnViewGraph) el.btnViewGraph.classList.remove('active');
+        if (state.displayMode !== 'grid') {
+          switchDisplayMode('grid');
+        }
         saveAppState();
         drawChart();
       });
