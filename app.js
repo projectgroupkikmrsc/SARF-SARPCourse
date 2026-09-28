@@ -5692,6 +5692,18 @@
               <div><strong>Interpolasi &amp; Paparan:</strong> Menggunakan algoritma <em>Inverse Distance Weighting (IDW)</em> dan ditopeng kemas mengikut <strong>Radius Kawasan Operasi SAR (R_ops)</strong> berpandukan standard <strong>IAMSAR Manual Vol II</strong>.</div>
             </div>
           </div>
+
+          <!-- Card 4: Arus Pasang Surut Stesen TC -->
+          <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.8rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem;">
+              <span style="font-size: 1.15rem;">🌀</span>
+              <strong style="color: #38bdf8; font-size: 0.86rem;">4. Arus Pasang Surut Stesen Pesisir (Tidal Current - TC)</strong>
+            </div>
+            <div style="font-size: 0.78rem; color: var(--text-muted); line-height: 1.5;">
+              <div><strong>Pangkalan Data:</strong> Stesen tolok pasang surut rasmi Malaysia (PHN/JUPEM) merangkumi Pantai Timur, Selat Melaka, Sarawak, dan Sabah dengan fungsi auto-kesan stesen terdekat dari LKP.</div>
+              <div><strong>Kiraan Multi-Hari:</strong> Menggunakan model harmonik astronomi (Semi-Diurnal 12.4j &amp; Diurnal 24.8j) dan unjuran siri masa jam-demi-jam (Flood &amp; Ebb Streams) sehingga 96 jam (4 hari) untuk menghasilkan anjakan paduan bersih <em>(Residual Tidal Drift)</em>.</div>
+            </div>
+          </div>
         </div>
 
         <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.3rem;">
