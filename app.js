@@ -2574,23 +2574,40 @@
     syncLeewayComboboxUI();
 
     // Event listener untuk input carian
-    el.leewaySearchInput.addEventListener('input', (e) => {
-      const q = e.target.value;
-      if (el.leewaySearchClear) {
-        el.leewaySearchClear.style.display = q.trim() ? 'block' : 'none';
-      }
-      openLeewayComboboxMenu();
-      renderLeewayComboboxMenu(q);
-    });
+    if (el.leewaySearchInput) {
+      el.leewaySearchInput.addEventListener('input', (e) => {
+        const q = e.target.value;
+        if (el.leewaySearchClear) {
+          el.leewaySearchClear.style.display = q.trim() ? 'block' : 'none';
+        }
+        openLeewayComboboxMenu();
+        renderLeewayComboboxMenu(q);
+      });
 
-    el.leewaySearchInput.addEventListener('focus', () => {
-      el.leewaySearchInput.value = '';
-      if (el.leewaySearchClear) {
-        el.leewaySearchClear.style.display = 'none';
-      }
-      openLeewayComboboxMenu();
-      renderLeewayComboboxMenu('');
-    });
+      el.leewaySearchInput.addEventListener('focus', () => {
+        el.leewaySearchInput.value = '';
+        if (el.leewaySearchClear) {
+          el.leewaySearchClear.style.display = 'none';
+        }
+        openLeewayComboboxMenu();
+        renderLeewayComboboxMenu('');
+      });
+
+      // Sokongan papan kekunci (Escape & Enter)
+      el.leewaySearchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          closeLeewayComboboxMenu();
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          if (el.leewayComboboxMenu) {
+            const firstVisible = el.leewayComboboxMenu.querySelector('.combobox-item');
+            if (firstVisible) {
+              selectLeewayComboboxOption(firstVisible.dataset.value);
+            }
+          }
+        }
+      });
+    }
 
     if (el.leewayComboboxArrow) {
       el.leewayComboboxArrow.addEventListener('click', (e) => {
@@ -2602,9 +2619,11 @@
     if (el.leewaySearchClear) {
       el.leewaySearchClear.addEventListener('click', (e) => {
         e.stopPropagation();
-        el.leewaySearchInput.value = '';
+        if (el.leewaySearchInput) {
+          el.leewaySearchInput.value = '';
+          el.leewaySearchInput.focus();
+        }
         el.leewaySearchClear.style.display = 'none';
-        el.leewaySearchInput.focus();
         renderLeewayComboboxMenu('');
       });
     }
@@ -2613,19 +2632,6 @@
     document.addEventListener('click', (e) => {
       if (el.leewayCombobox && !el.leewayCombobox.contains(e.target)) {
         closeLeewayComboboxMenu();
-      }
-    });
-
-    // Sokongan papan kekunci (Escape & Enter)
-    el.leewaySearchInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        closeLeewayComboboxMenu();
-      } else if (e.key === 'Enter') {
-        e.preventDefault();
-        const firstVisible = el.leewayComboboxMenu.querySelector('.combobox-item');
-        if (firstVisible) {
-          selectLeewayComboboxOption(firstVisible.dataset.value);
-        }
       }
     });
   }
@@ -9519,13 +9525,18 @@
     }
 
     // Kemaskini live preview jarak bila kelajuan atau masa berubah
-    el.speedInput.addEventListener('input', updateDistancePreview);
-    el.timeInput.addEventListener('input', updateDistancePreview);
-    el.speedInput.addEventListener('change', updateDistancePreview);
-    el.timeInput.addEventListener('change', updateDistancePreview);
+    if (el.speedInput) {
+      el.speedInput.addEventListener('input', updateDistancePreview);
+      el.speedInput.addEventListener('change', updateDistancePreview);
+    }
+    if (el.timeInput) {
+      el.timeInput.addEventListener('input', updateDistancePreview);
+      el.timeInput.addEventListener('change', updateDistancePreview);
+    }
 
     // Input Koordinat Origin Geografi
     const handleOriginChange = () => {
+      if (!el.originLatInput || !el.originLonInput) return;
       const parsedLat = parseCoordinate(el.originLatInput.value, true);
       const parsedLon = parseCoordinate(el.originLonInput.value, false);
 
@@ -9539,8 +9550,8 @@
       }
     };
 
-    el.originLatInput.addEventListener('change', handleOriginChange);
-    el.originLonInput.addEventListener('change', handleOriginChange);
+    if (el.originLatInput) el.originLatInput.addEventListener('change', handleOriginChange);
+    if (el.originLonInput) el.originLonInput.addEventListener('change', handleOriginChange);
 
     // Auto-save pada perubahan input form & cockpit
     const persistInputs = [
@@ -9564,30 +9575,32 @@
     });
 
     // Butang Klik Peta Set Origin
-    el.btnPickLocation.addEventListener('click', () => {
-      if (state.displayMode !== 'map') {
-        switchDisplayMode('map');
-      }
+    if (el.btnPickLocation) {
+      el.btnPickLocation.addEventListener('click', () => {
+        if (state.displayMode !== 'map') {
+          switchDisplayMode('map');
+        }
 
-      state.isPickingLocation = !state.isPickingLocation;
-      if (state.isPickingLocation) {
-        el.btnPickLocation.classList.remove('btn-outline');
-        el.btnPickLocation.classList.add('btn-success');
-        el.btnPickLocation.innerHTML = `
-          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
-          <span>Klik Atas Peta Sekarang...</span>
-        `;
-        el.mapContainer.style.cursor = 'crosshair';
-      } else {
-        el.btnPickLocation.classList.remove('btn-success');
-        el.btnPickLocation.classList.add('btn-outline');
-        el.btnPickLocation.innerHTML = `
-          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="22" y1="12" x2="18" y2="12"/><line x1="6" y1="12" x2="2" y2="12"/><line x1="12" y1="6" x2="12" y2="2"/><line x1="12" y1="22" x2="12" y2="18"/></svg>
-          <span>📍 Klik Peta Set Origin</span>
-        `;
-        el.mapContainer.style.cursor = '';
-      }
-    });
+        state.isPickingLocation = !state.isPickingLocation;
+        if (state.isPickingLocation) {
+          el.btnPickLocation.classList.remove('btn-outline');
+          el.btnPickLocation.classList.add('btn-success');
+          el.btnPickLocation.innerHTML = `
+            <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+            <span>Klik Atas Peta Sekarang...</span>
+          `;
+          if (el.mapContainer) el.mapContainer.style.cursor = 'crosshair';
+        } else {
+          el.btnPickLocation.classList.remove('btn-success');
+          el.btnPickLocation.classList.add('btn-outline');
+          el.btnPickLocation.innerHTML = `
+            <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="22" y1="12" x2="18" y2="12"/><line x1="6" y1="12" x2="2" y2="12"/><line x1="12" y1="6" x2="12" y2="2"/><line x1="12" y1="22" x2="12" y2="18"/></svg>
+            <span>📍 Klik Peta Set Origin</span>
+          `;
+          if (el.mapContainer) el.mapContainer.style.cursor = '';
+        }
+      });
+    }
 
     // Butang Auto Cuaca / Arus Metocean Satelit
     if (el.btnFetchMetocean) {
@@ -10072,34 +10085,42 @@
     }
 
     // Tambah Vektor (Tab 1)
-    el.btnAdd.addEventListener('click', () => {
-      const b = parseFloat(el.bearingInput.value);
-      const s = parseFloat(el.speedInput.value);
-      const t = parseFloat(el.timeInput.value);
-      addVector(b, s, t);
-    });
+    if (el.btnAdd) {
+      el.btnAdd.addEventListener('click', () => {
+        const b = parseFloat(el.bearingInput ? el.bearingInput.value : '0');
+        const s = parseFloat(el.speedInput ? el.speedInput.value : '0');
+        const t = parseFloat(el.timeInput ? el.timeInput.value : '0');
+        addVector(b, s, t);
+      });
+    }
 
     // Enter Key pada input
     [el.bearingInput, el.speedInput, el.timeInput].forEach(inp => {
-      inp.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          el.btnAdd.click();
-        }
-      });
+      if (inp) {
+        inp.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            if (el.btnAdd) el.btnAdd.click();
+          }
+        });
+      }
     });
 
     // Kira Resultant
-    el.btnCalc.addEventListener('click', () => {
-      calculateResultant();
-    });
+    if (el.btnCalc) {
+      el.btnCalc.addEventListener('click', () => {
+        calculateResultant();
+      });
+    }
 
     // Reset Semula
-    el.btnReset.addEventListener('click', () => {
-      if (confirm('Adakah anda pasti mahu reset semua pengiraan dan mula dari titik asal?')) {
-        resetAll();
-      }
-    });
+    if (el.btnReset) {
+      el.btnReset.addEventListener('click', () => {
+        if (confirm('Adakah anda pasti mahu reset semua pengiraan dan mula dari titik asal?')) {
+          resetAll();
+        }
+      });
+    }
 
     // Butang Togol Paparan Graf vs Maneuvering Form
     if (el.btnViewGraph) {
@@ -10129,51 +10150,55 @@
     }
 
     // Butang Zum & Pan
-    el.btnZoomIn.addEventListener('click', () => zoomBy(1.25));
-    el.btnZoomOut.addEventListener('click', () => zoomBy(0.8));
-    el.btnFitView.addEventListener('click', autoFitView);
-    el.btnResetPan.addEventListener('click', resetPanZoom);
+    if (el.btnZoomIn) el.btnZoomIn.addEventListener('click', () => zoomBy(1.25));
+    if (el.btnZoomOut) el.btnZoomOut.addEventListener('click', () => zoomBy(0.8));
+    if (el.btnFitView) el.btnFitView.addEventListener('click', autoFitView);
+    if (el.btnResetPan) el.btnResetPan.addEventListener('click', resetPanZoom);
 
     // Contoh Latihan (Segitiga Haluan Maritim)
-    el.btnSample.addEventListener('click', () => {
-      state.vectors = [];
-      state.points = [{ x: 0, y: 0 }];
-      
-      // Leg 1: Haluan 090°, 12 Knot, 1.0 Jam = 12 NM
-      addVector(90, 12, 1.0);
-      // Leg 2: Haluan 000°, 10 Knot, 0.8 Jam = 8 NM
-      addVector(0, 10, 0.8);
-      // Leg 3: Haluan 240°, 8 Knot, 1.0 Jam = 8 NM
-      addVector(240, 8, 1.0);
-      
-      calculateResultant();
-      if (state.displayMode === 'grid') {
-        autoFitView();
-      } else {
-        updateLeafletMap();
-      }
-    });
+    if (el.btnSample) {
+      el.btnSample.addEventListener('click', () => {
+        state.vectors = [];
+        state.points = [{ x: 0, y: 0 }];
+        
+        // Leg 1: Haluan 090°, 12 Knot, 1.0 Jam = 12 NM
+        addVector(90, 12, 1.0);
+        // Leg 2: Haluan 000°, 10 Knot, 0.8 Jam = 8 NM
+        addVector(0, 10, 0.8);
+        // Leg 3: Haluan 240°, 8 Knot, 1.0 Jam = 8 NM
+        addVector(240, 8, 1.0);
+        
+        calculateResultant();
+        if (state.displayMode === 'grid') {
+          autoFitView();
+        } else {
+          updateLeafletMap();
+        }
+      });
+    }
 
     // Eksport Imej PNG
-    el.btnExportImg.addEventListener('click', () => {
-      if (state.displayMode === 'grid') {
-        const exportCanvas = document.createElement('canvas');
-        exportCanvas.width = el.canvas.width;
-        exportCanvas.height = el.canvas.height;
-        const expCtx = exportCanvas.getContext('2d');
-        const isLight = document.documentElement.getAttribute('data-theme') === 'light';
-        expCtx.fillStyle = isLight ? '#f1f5f9' : '#040911';
-        expCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
-        expCtx.drawImage(el.canvas, 0, 0);
+    if (el.btnExportImg) {
+      el.btnExportImg.addEventListener('click', () => {
+        if (state.displayMode === 'grid') {
+          const exportCanvas = document.createElement('canvas');
+          exportCanvas.width = el.canvas.width;
+          exportCanvas.height = el.canvas.height;
+          const expCtx = exportCanvas.getContext('2d');
+          const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+          expCtx.fillStyle = isLight ? '#f1f5f9' : '#040911';
+          expCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+          expCtx.drawImage(el.canvas, 0, 0);
 
-        const link = document.createElement('a');
-        link.download = `Carta_Navigasi_${new Date().toISOString().slice(0, 10)}.png`;
-        link.href = exportCanvas.toDataURL('image/png');
-        link.click();
-      } else {
-        alert('Untuk mod Peta Laut, anda boleh gunakan fungsi Screenshot.');
-      }
-    });
+          const link = document.createElement('a');
+          link.download = `Carta_Navigasi_${new Date().toISOString().slice(0, 10)}.png`;
+          link.href = exportCanvas.toDataURL('image/png');
+          link.click();
+        } else {
+          alert('Untuk mod Peta Laut, anda boleh gunakan fungsi Screenshot.');
+        }
+      });
+    }
 
     // Togol Mod Cerah / Mod Gelap
     if (el.btnThemeToggle) {
@@ -10196,100 +10221,104 @@
       });
     }
 
-    // Mouse Drag untuk Pan pada Canvas
-    el.canvasWrapper.addEventListener('mousedown', (e) => {
-      if (state.displayMode !== 'grid') return;
-      state.view.isDragging = true;
-      state.view.lastMouseX = e.clientX;
-      state.view.lastMouseY = e.clientY;
-      el.canvasWrapper.style.cursor = 'grabbing';
-    });
-
-    window.addEventListener('mousemove', (e) => {
-      if (state.displayMode !== 'grid') return;
-      if (!state.view.isDragging) {
-        const rect = el.canvasWrapper.getBoundingClientRect();
-        if (e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom) {
-          const sx = e.clientX - rect.left;
-          const sy = e.clientY - rect.top;
-          const world = screenToWorld(sx, sy);
-          el.cursorCoords.textContent = `Koordinat: X: ${world.x.toFixed(2)} NM | Y: ${world.y.toFixed(2)} NM`;
-        }
-        return;
-      }
-
-      const dx = e.clientX - state.view.lastMouseX;
-      const dy = e.clientY - state.view.lastMouseY;
-      state.view.panX += dx;
-      state.view.panY += dy;
-      state.view.lastMouseX = e.clientX;
-      state.view.lastMouseY = e.clientY;
-
-      drawChart();
-    });
-
-    window.addEventListener('mouseup', () => {
-      if (state.displayMode !== 'grid') return;
-      if (state.view.isDragging) {
-        state.view.isDragging = false;
-        el.canvasWrapper.style.cursor = 'crosshair';
-      }
-    });
-
-    el.canvasWrapper.addEventListener('wheel', (e) => {
-      if (state.displayMode !== 'grid') return;
-      e.preventDefault();
-      const rect = el.canvasWrapper.getBoundingClientRect();
-      const cursorX = e.clientX - rect.left;
-      const cursorY = e.clientY - rect.top;
-      const factor = e.deltaY < 0 ? 1.15 : 0.87;
-      zoomBy(factor, cursorX, cursorY);
-    }, { passive: false });
-
-    // Touch Events untuk Mobile
-    el.canvasWrapper.addEventListener('touchstart', (e) => {
-      if (state.displayMode !== 'grid') return;
-      if (e.touches.length === 1) {
+    // Mouse Drag & Touch untuk Pan pada Canvas Wrapper
+    if (el.canvasWrapper) {
+      el.canvasWrapper.addEventListener('mousedown', (e) => {
+        if (state.displayMode !== 'grid') return;
         state.view.isDragging = true;
-        state.view.lastMouseX = e.touches[0].clientX;
-        state.view.lastMouseY = e.touches[0].clientY;
-      } else if (e.touches.length === 2) {
-        state.view.isDragging = false;
-        state.view.touchStartDist = Math.hypot(
-          e.touches[0].clientX - e.touches[1].clientX,
-          e.touches[0].clientY - e.touches[1].clientY
-        );
-      }
-    }, { passive: true });
+        state.view.lastMouseX = e.clientX;
+        state.view.lastMouseY = e.clientY;
+        el.canvasWrapper.style.cursor = 'grabbing';
+      });
 
-    el.canvasWrapper.addEventListener('touchmove', (e) => {
-      if (state.displayMode !== 'grid') return;
-      if (e.touches.length === 1 && state.view.isDragging) {
-        const dx = e.touches[0].clientX - state.view.lastMouseX;
-        const dy = e.touches[0].clientY - state.view.lastMouseY;
+      window.addEventListener('mousemove', (e) => {
+        if (state.displayMode !== 'grid') return;
+        if (!state.view.isDragging) {
+          const rect = el.canvasWrapper.getBoundingClientRect();
+          if (e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom) {
+            const sx = e.clientX - rect.left;
+            const sy = e.clientY - rect.top;
+            const world = screenToWorld(sx, sy);
+            if (el.cursorCoords) {
+              el.cursorCoords.textContent = `Koordinat: X: ${world.x.toFixed(2)} NM | Y: ${world.y.toFixed(2)} NM`;
+            }
+          }
+          return;
+        }
+
+        const dx = e.clientX - state.view.lastMouseX;
+        const dy = e.clientY - state.view.lastMouseY;
         state.view.panX += dx;
         state.view.panY += dy;
-        state.view.lastMouseX = e.touches[0].clientX;
-        state.view.lastMouseY = e.touches[0].clientY;
-        drawChart();
-      } else if (e.touches.length === 2) {
-        const dist = Math.hypot(
-          e.touches[0].clientX - e.touches[1].clientX,
-          e.touches[0].clientY - e.touches[1].clientY
-        );
-        if (state.view.touchStartDist > 0) {
-          const factor = dist / state.view.touchStartDist;
-          zoomBy(factor);
-          state.view.touchStartDist = dist;
-        }
-      }
-    }, { passive: true });
+        state.view.lastMouseX = e.clientX;
+        state.view.lastMouseY = e.clientY;
 
-    el.canvasWrapper.addEventListener('touchend', () => {
-      if (state.displayMode !== 'grid') return;
-      state.view.isDragging = false;
-      state.view.touchStartDist = 0;
-    });
+        drawChart();
+      });
+
+      window.addEventListener('mouseup', () => {
+        if (state.displayMode !== 'grid') return;
+        if (state.view.isDragging) {
+          state.view.isDragging = false;
+          el.canvasWrapper.style.cursor = 'crosshair';
+        }
+      });
+
+      el.canvasWrapper.addEventListener('wheel', (e) => {
+        if (state.displayMode !== 'grid') return;
+        e.preventDefault();
+        const rect = el.canvasWrapper.getBoundingClientRect();
+        const cursorX = e.clientX - rect.left;
+        const cursorY = e.clientY - rect.top;
+        const factor = e.deltaY < 0 ? 1.15 : 0.87;
+        zoomBy(factor, cursorX, cursorY);
+      }, { passive: false });
+
+      // Touch Events untuk Mobile
+      el.canvasWrapper.addEventListener('touchstart', (e) => {
+        if (state.displayMode !== 'grid') return;
+        if (e.touches.length === 1) {
+          state.view.isDragging = true;
+          state.view.lastMouseX = e.touches[0].clientX;
+          state.view.lastMouseY = e.touches[0].clientY;
+        } else if (e.touches.length === 2) {
+          state.view.isDragging = false;
+          state.view.touchStartDist = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY
+          );
+        }
+      }, { passive: true });
+
+      el.canvasWrapper.addEventListener('touchmove', (e) => {
+        if (state.displayMode !== 'grid') return;
+        if (e.touches.length === 1 && state.view.isDragging) {
+          const dx = e.touches[0].clientX - state.view.lastMouseX;
+          const dy = e.touches[0].clientY - state.view.lastMouseY;
+          state.view.panX += dx;
+          state.view.panY += dy;
+          state.view.lastMouseX = e.touches[0].clientX;
+          state.view.lastMouseY = e.touches[0].clientY;
+          drawChart();
+        } else if (e.touches.length === 2) {
+          const dist = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY
+          );
+          if (state.view.touchStartDist > 0) {
+            const factor = dist / state.view.touchStartDist;
+            zoomBy(factor);
+            state.view.touchStartDist = dist;
+          }
+        }
+      }, { passive: true });
+
+      el.canvasWrapper.addEventListener('touchend', () => {
+        if (state.displayMode !== 'grid') return;
+        state.view.isDragging = false;
+        state.view.touchStartDist = 0;
+      });
+    }
 
     // Butang Floating Overlays: Windy Particle Flow & Vector Overlays (Feature 5)
     document.querySelectorAll('.map-flow-icon-btn').forEach(btn => {
