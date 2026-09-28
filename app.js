@@ -1483,7 +1483,7 @@
 
   function isCoordinateOnLand(lat, lon) {
     if (isNaN(lat) || isNaN(lon)) return false;
-    const polys = (typeof window !== 'undefined' && window.MALAYSIA_LAND_POLYGONS) ? window.MALAYSIA_LAND_POLYGONS : ((typeof MALAYSIA_LAND_POLYGONS !== 'undefined') ? MALAYSIA_LAND_POLYGONS : []);
+    const polys = (typeof window !== 'undefined' && window.MALAYSIA_LAND_POLYGONS) ? window.MALAYSIA_LAND_POLYGONS : ((typeof MALAYSIA_LAND_POLYGONS !== 'undefined') ? MALAYSIA_LAND_POLYGONS : ((typeof global !== 'undefined' && global.MALAYSIA_LAND_POLYGONS) ? global.MALAYSIA_LAND_POLYGONS : []));
     if (!polys || polys.length === 0) return false;
 
     for (let i = 0; i < polys.length; i++) {
@@ -10919,6 +10919,10 @@
 
     // Ralat Kedudukan Asal (X)
     const errX = fd.errorX || 1.0;
+    const originLat = fd.originLat;
+    const originLon = fd.originLon;
+    const cosLat = Math.cos((originLat * Math.PI) / 180);
+    const maxT = Math.max(1.0, Math.round(dur * 10) / 10);
 
     const particles = [];
 
@@ -10949,6 +10953,22 @@
       // 5. Halaju Bersih Zarah (NM / jam)
       const vxTotal = vxTwc + vxLw;
       const vyTotal = vyTwc + vyLw;
+      const pSpeed = Math.hypot(vxTotal, vyTotal);
+      const pBearing = pSpeed > 0.0001 ? cartesianToNauticalBearing(vxTotal, vyTotal) : 0;
+
+      // Titik mula zarah
+      const pLat0 = originLat + dy0 / 60.0;
+      const pLon0 = originLon + dx0 / (60.0 * cosLat);
+      const maxDistNM = pSpeed * maxT;
+
+      // Shoreline interception check untuk setiap zarah Monte Carlo
+      const intercept = maxDistNM > 0.01 
+        ? findShorelineIntercept(pLat0, pLon0, pBearing, maxDistNM)
+        : { lat: pLat0, lon: pLon0, distNM: 0, isLandfall: false };
+
+      const isLandfall = !!intercept.isLandfall;
+      const landfallDist = intercept.distNM;
+      const tLandfall = (isLandfall && pSpeed > 0.0001) ? (landfallDist / pSpeed) : null;
 
       particles.push({
         id: i,
@@ -10956,12 +10976,21 @@
         dx0,
         dy0,
         vx: vxTotal,
-        vy: vyTotal
+        vy: vyTotal,
+        pSpeed,
+        pBearing,
+        pLat0,
+        pLon0,
+        isLandfall,
+        landfallDist,
+        landfallLat: intercept.lat,
+        landfallLon: intercept.lon,
+        tLandfall
       });
     }
 
     state.monteCarlo.particles = particles;
-    state.monteCarlo.maxTime = Math.max(1.0, Math.round(dur * 10) / 10);
+    state.monteCarlo.maxTime = maxT;
     state.monteCarlo.currentTime = state.monteCarlo.maxTime; // Lalai: waktu terkini datum
   }
 
@@ -11112,29 +11141,40 @@
 
     for (let i = 0; i < particles.length; i++) {
       const p = particles[i];
-      const nmX = p.dx0 + p.vx * t;
-      const nmY = p.dy0 + p.vy * t;
+      let lat, lon;
+      const isStranded = p.isLandfall && (t >= p.tLandfall);
+
+      if (isStranded) {
+        // Zarah telah terdampar & terhenti di pesisir pantai
+        lat = p.landfallLat;
+        lon = p.landfallLon;
+      } else {
+        const nmX = p.dx0 + p.vx * t;
+        const nmY = p.dy0 + p.vy * t;
+        lat = originLat + nmY / 60.0;
+        lon = originLon + nmX / (60.0 * cosLat);
+      }
 
       // Kira jarak zarah dari pusat kluster (Datum L atau Datum R)
       const cx = p.branch === 'left' ? cxL : cxR;
       const cy = p.branch === 'left' ? cyL : cyR;
-      const dist = Math.hypot(nmX - cx, nmY - cy);
+      const curNmX = (lon - originLon) * 60.0 * cosLat;
+      const curNmY = (lat - originLat) * 60.0;
+      const dist = Math.hypot(curNmX - cx, curNmY - cy);
       const zScore = dist / spread;
       const pDensity = Math.exp(-0.5 * zScore * zScore); // 1.0 di pusat (merah), menurun ke 0.0 di luar (hijau)
-      const colorObj = getProbabilityDensityColor(pDensity, 0.75 + pDensity * 0.2);
-
-      // Tukar NM kepada Lat/Lon
-      const lat = originLat + nmY / 60.0;
-      const lon = originLon + nmX / (60.0 * cosLat);
+      const colorObj = isStranded
+        ? { fill: 'rgba(239, 68, 68, 0.95)', glow: '#ef4444' }
+        : getProbabilityDensityColor(pDensity, 0.75 + pDensity * 0.2);
 
       const pt = leafletMap.latLngToContainerPoint([lat, lon]);
 
       // Lukis titik zarah dengan tona warna kebarangkalian
       mcCtx.beginPath();
-      mcCtx.arc(pt.x, pt.y, 2.2 + pDensity * 0.8, 0, Math.PI * 2);
+      mcCtx.arc(pt.x, pt.y, isStranded ? 2.6 : (2.2 + pDensity * 0.8), 0, Math.PI * 2);
       mcCtx.fillStyle = colorObj.fill;
       mcCtx.shadowColor = colorObj.glow;
-      mcCtx.shadowBlur = pDensity > 0.55 ? 5 : 2;
+      mcCtx.shadowBlur = (isStranded || pDensity > 0.55) ? 5 : 2;
       mcCtx.fill();
     }
 
@@ -11150,6 +11190,14 @@
     const windVec = getMetoceanVectorAtTime(t, 'wind');
     const currVec = getMetoceanVectorAtTime(t, 'current');
 
+    const particles = state.monteCarlo.particles || [];
+    let strandedCount = 0;
+    for (let i = 0; i < particles.length; i++) {
+      if (particles[i].isLandfall && t >= particles[i].tLandfall) {
+        strandedCount++;
+      }
+    }
+
     if (el.mcSliderCurrTime) {
       let text = `T + ${t.toFixed(1)}j`;
       if (windVec && windVec.speed > 0) {
@@ -11157,6 +11205,10 @@
       }
       if (currVec && currVec.speed > 0) {
         text += ` • 🌊 ${currVec.speed.toFixed(2)}kt (${Math.round(currVec.dir).toString().padStart(3, '0')}°)`;
+      }
+      if (strandedCount > 0 && particles.length > 0) {
+        const pct = Math.round((strandedCount / particles.length) * 100);
+        text += ` • 🏖️ ${strandedCount} (${pct}%) Terkandas Pantai`;
       }
       el.mcSliderCurrTime.textContent = text;
     }
