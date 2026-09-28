@@ -8402,44 +8402,64 @@
     if (state.displayMode !== 'grid') return;
     if (!el.canvasWrapper || !el.canvas) return;
     const rect = el.canvasWrapper.getBoundingClientRect();
-    if (rect.width <= 0 || rect.height <= 0) {
+    let width = rect.width;
+    let height = rect.height;
+
+    if (width <= 0 || height <= 0) {
+      width = el.canvasWrapper.clientWidth || el.canvas.clientWidth || 800;
+      height = el.canvasWrapper.clientHeight || el.canvas.clientHeight || 600;
+    }
+
+    if (width <= 0 || height <= 0) {
       requestAnimationFrame(() => {
         if (state.displayMode === 'grid') resizeCanvas();
       });
       return;
     }
-    const dpr = window.devicePixelRatio || 1;
 
-    el.canvas.width = rect.width * dpr;
-    el.canvas.height = rect.height * dpr;
+    const dpr = window.devicePixelRatio || 1;
+    el.canvas.width = Math.round(width * dpr);
+    el.canvas.height = Math.round(height * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     drawChart();
   }
 
   function getOriginScreenPos() {
-    const rect = el.canvasWrapper.getBoundingClientRect();
+    const rect = el.canvasWrapper ? el.canvasWrapper.getBoundingClientRect() : { width: 0, height: 0 };
+    const w = rect.width > 0 ? rect.width : (el.canvas ? (el.canvas.clientWidth || el.canvas.width || 800) : 800);
+    const h = rect.height > 0 ? rect.height : (el.canvas ? (el.canvas.clientHeight || el.canvas.height || 600) : 600);
+    const panX = (typeof state.view.panX === 'number' && !isNaN(state.view.panX)) ? state.view.panX : 0;
+    const panY = (typeof state.view.panY === 'number' && !isNaN(state.view.panY)) ? state.view.panY : 0;
     return {
-      x: rect.width / 2 + state.view.panX,
-      y: rect.height / 2 + state.view.panY
+      x: w / 2 + panX,
+      y: h / 2 + panY
     };
   }
 
   function worldToScreen(wx, wy) {
     const origin = getOriginScreenPos();
-    const ppm = state.view.basePixelsPerNM * state.view.zoom;
+    const zoom = (typeof state.view.zoom === 'number' && !isNaN(state.view.zoom) && state.view.zoom > 0.05) ? state.view.zoom : 1.0;
+    const basePPM = state.view.basePixelsPerNM || 35;
+    const ppm = basePPM * zoom;
+    const validWx = (typeof wx === 'number' && !isNaN(wx)) ? wx : 0;
+    const validWy = (typeof wy === 'number' && !isNaN(wy)) ? wy : 0;
     return {
-      x: origin.x + wx * ppm,
-      y: origin.y - wy * ppm
+      x: origin.x + validWx * ppm,
+      y: origin.y - validWy * ppm
     };
   }
 
   function screenToWorld(sx, sy) {
     const origin = getOriginScreenPos();
-    const ppm = state.view.basePixelsPerNM * state.view.zoom;
+    const zoom = (typeof state.view.zoom === 'number' && !isNaN(state.view.zoom) && state.view.zoom > 0.05) ? state.view.zoom : 1.0;
+    const basePPM = state.view.basePixelsPerNM || 35;
+    const ppm = basePPM * zoom;
+    const validSx = (typeof sx === 'number' && !isNaN(sx)) ? sx : origin.x;
+    const validSy = (typeof sy === 'number' && !isNaN(sy)) ? sy : origin.y;
     return {
-      x: (sx - origin.x) / ppm,
-      y: -(sy - origin.y) / ppm
+      x: (validSx - origin.x) / ppm,
+      y: -(validSy - origin.y) / ppm
     };
   }
 
@@ -8447,9 +8467,24 @@
     if (state.displayMode !== 'grid') return;
     if (!el.canvasWrapper || !el.canvas || !ctx) return;
     const rect = el.canvasWrapper.getBoundingClientRect();
-    const width = rect.width;
-    const height = rect.height;
+    let width = rect.width;
+    let height = rect.height;
+
+    if (width <= 0 || height <= 0) {
+      width = el.canvas.clientWidth || (el.canvas.width / (window.devicePixelRatio || 1)) || 800;
+      height = el.canvas.clientHeight || (el.canvas.height / (window.devicePixelRatio || 1)) || 600;
+    }
     if (width <= 0 || height <= 0) return;
+
+    if (typeof state.view.zoom !== 'number' || isNaN(state.view.zoom) || state.view.zoom <= 0.05) {
+      state.view.zoom = 1.0;
+    }
+    if (typeof state.view.panX !== 'number' || isNaN(state.view.panX)) {
+      state.view.panX = 0;
+    }
+    if (typeof state.view.panY !== 'number' || isNaN(state.view.panY)) {
+      state.view.panY = 0;
+    }
 
     ctx.clearRect(0, 0, width, height);
 
@@ -8471,7 +8506,9 @@
 
   function drawManeuveringBoard(width, height) {
     const isLight = document.documentElement.getAttribute('data-theme') === 'light';
-    const ppm = state.view.basePixelsPerNM * state.view.zoom;
+    const zoom = (typeof state.view.zoom === 'number' && !isNaN(state.view.zoom) && state.view.zoom > 0.05) ? state.view.zoom : 1.0;
+    const basePPM = state.view.basePixelsPerNM || 35;
+    const ppm = basePPM * zoom;
     const origin = getOriginScreenPos();
 
     // Tentukan skala jejari bulatan MoBoard
@@ -8493,7 +8530,8 @@
     }
 
     const maxDim = Math.max(width, height) * 1.5;
-    const maxRings = Math.min(30, Math.ceil(maxDim / (ringStepNM * ppm)));
+    const ringStepPx = Math.max(10, ringStepNM * ppm);
+    const maxRings = Math.min(30, Math.ceil(maxDim / ringStepPx));
 
     // Warna mengikut tema
     const ringColor = isLight ? 'rgba(2, 132, 199, 0.18)' : 'rgba(56, 189, 248, 0.12)';
@@ -8594,7 +8632,9 @@
 
   function drawNauticalGrid(width, height) {
     const isLight = document.documentElement.getAttribute('data-theme') === 'light';
-    const ppm = state.view.basePixelsPerNM * state.view.zoom;
+    const zoom = (typeof state.view.zoom === 'number' && !isNaN(state.view.zoom) && state.view.zoom > 0.05) ? state.view.zoom : 1.0;
+    const basePPM = state.view.basePixelsPerNM || 35;
+    const ppm = basePPM * zoom;
     const origin = getOriginScreenPos();
 
     let stepNM = 1;
@@ -8614,19 +8654,19 @@
       el.chartScaleIndicator.textContent = `1 petak = ${stepNM} NM`;
     }
 
-    const stepPx = stepNM * ppm;
+    const stepPx = Math.max(10, stepNM * ppm);
 
     ctx.lineWidth = 1;
     ctx.strokeStyle = isLight ? 'rgba(2, 132, 199, 0.16)' : 'rgba(56, 189, 248, 0.08)';
     ctx.beginPath();
 
-    const startX = origin.x % stepPx;
+    const startX = ((origin.x % stepPx) + stepPx) % stepPx;
     for (let x = startX; x < width; x += stepPx) {
       ctx.moveTo(x, 0);
       ctx.lineTo(x, height);
     }
 
-    const startY = origin.y % stepPx;
+    const startY = ((origin.y % stepPx) + stepPx) % stepPx;
     for (let y = startY; y < height; y += stepPx) {
       ctx.moveTo(0, y);
       ctx.lineTo(width, y);
@@ -8816,14 +8856,22 @@
   // =========================================================================
 
   function autoFitView() {
-    if (state.points.length <= 1) {
+    if (!state.points || state.points.length <= 1) {
       resetPanZoom();
       return;
     }
 
-    const rect = el.canvasWrapper.getBoundingClientRect();
-    const allX = state.points.map(p => p.x);
-    const allY = state.points.map(p => p.y);
+    const rect = el.canvasWrapper ? el.canvasWrapper.getBoundingClientRect() : { width: 800, height: 600 };
+    const w = rect.width > 0 ? rect.width : (el.canvas ? (el.canvas.clientWidth || 800) : 800);
+    const h = rect.height > 0 ? rect.height : (el.canvas ? (el.canvas.clientHeight || 600) : 600);
+
+    const allX = state.points.map(p => p.x).filter(x => typeof x === 'number' && !isNaN(x));
+    const allY = state.points.map(p => p.y).filter(y => typeof y === 'number' && !isNaN(y));
+
+    if (allX.length === 0 || allY.length === 0) {
+      resetPanZoom();
+      return;
+    }
 
     const minX = Math.min(...allX, 0);
     const maxX = Math.max(...allX, 0);
@@ -8834,18 +8882,19 @@
     const spanY = Math.max(maxY - minY, 4);
 
     const marginPx = 80;
-    const availW = Math.max(rect.width - marginPx * 2, 100);
-    const availH = Math.max(rect.height - marginPx * 2, 100);
+    const availW = Math.max(w - marginPx * 2, 100);
+    const availH = Math.max(h - marginPx * 2, 100);
 
     const fitPpmX = availW / spanX;
     const fitPpmY = availH / spanY;
     const fitPpm = Math.min(fitPpmX, fitPpmY);
+    const basePPM = state.view.basePixelsPerNM || 35;
 
-    state.view.zoom = Math.max(0.2, Math.min(fitPpm / state.view.basePixelsPerNM, 4.0));
+    state.view.zoom = Math.max(0.2, Math.min(fitPpm / basePPM, 4.0));
 
     const midWorldX = (minX + maxX) / 2;
     const midWorldY = (minY + maxY) / 2;
-    const ppm = state.view.basePixelsPerNM * state.view.zoom;
+    const ppm = basePPM * state.view.zoom;
 
     state.view.panX = -midWorldX * ppm;
     state.view.panY = midWorldY * ppm;
@@ -8861,19 +8910,23 @@
   }
 
   function zoomBy(factor, centerX, centerY) {
-    const oldZoom = state.view.zoom;
+    const oldZoom = (typeof state.view.zoom === 'number' && !isNaN(state.view.zoom) && state.view.zoom > 0.05) ? state.view.zoom : 1.0;
     const newZoom = Math.max(0.15, Math.min(oldZoom * factor, 12));
 
     if (centerX !== undefined && centerY !== undefined) {
       const origin = getOriginScreenPos();
-      const ppmOld = state.view.basePixelsPerNM * oldZoom;
-      const ppmNew = state.view.basePixelsPerNM * newZoom;
+      const basePPM = state.view.basePixelsPerNM || 35;
+      const ppmOld = basePPM * oldZoom;
+      const ppmNew = basePPM * newZoom;
 
       const wx = (centerX - origin.x) / ppmOld;
       const wy = -(centerY - origin.y) / ppmOld;
 
-      state.view.panX = centerX - el.canvasWrapper.clientWidth / 2 - wx * ppmNew;
-      state.view.panY = centerY - el.canvasWrapper.clientHeight / 2 + wy * ppmNew;
+      const wrapperW = el.canvasWrapper ? (el.canvasWrapper.clientWidth || 800) : 800;
+      const wrapperH = el.canvasWrapper ? (el.canvasWrapper.clientHeight || 600) : 600;
+
+      state.view.panX = centerX - wrapperW / 2 - wx * ppmNew;
+      state.view.panY = centerY - wrapperH / 2 + wy * ppmNew;
     }
 
     state.view.zoom = newZoom;
@@ -11058,6 +11111,11 @@
 
     // Jaminan render graf awal pada permulaan muat turun halaman
     if (state.displayMode === 'grid') {
+      if (state.vectors && state.vectors.length > 0) {
+        autoFitView();
+      } else {
+        resetPanZoom();
+      }
       resizeCanvas();
     }
 
@@ -11076,6 +11134,11 @@
         resizeCanvas();
       }
     }, 150);
+    setTimeout(() => {
+      if (state.displayMode === 'grid') {
+        resizeCanvas();
+      }
+    }, 300);
   });
 
 })();
