@@ -871,6 +871,7 @@
       startDate: null,
       endDate: null
     },
+    metoceanGrid: [], // 9-point grid metocean data [{ id, name, lat, lon, isCenter, windHours, marineHours }]
 
     // State untuk Penjana Waypoint (Feature 4: Turn-by-Turn Waypoints Generator)
     waypointGen: {
@@ -5313,11 +5314,16 @@
       <div style="display: flex; flex-direction: column; gap: 0.85rem;">
         <div style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: var(--radius-sm); padding: 0.65rem 0.85rem; font-size: 0.78rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.4rem;">
           <div>
-            <span style="color: var(--text-muted);">Lokasi Kejadian:</span> <strong>${formatCoordinate(data.lat, true)} | ${formatCoordinate(data.lon, false)}</strong>
+            <span style="color: var(--text-muted);">Lokasi Pusat (LKP):</span> <strong>${formatCoordinate(data.lat, true)} | ${formatCoordinate(data.lon, false)}</strong>
           </div>
           <div>
             <span style="color: var(--text-muted);">Sela Waktu:</span> <strong>${totalWindHoursStr} Jam</strong>
           </div>
+        </div>
+
+        <div style="background: rgba(14, 165, 233, 0.06); border: 1px solid rgba(14, 165, 233, 0.2); border-radius: var(--radius-sm); padding: 0.4rem 0.75rem; font-size: 0.72rem; color: #38bdf8; display: flex; align-items: center; gap: 0.4rem;">
+          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          <span><strong>Mesh Grid 9-Titik (3x3):</strong> Cerapan spatial di perairan operasi SAR dimuat turun dan diinterpolasi secara automatik.</span>
         </div>
 
         <div class="metocean-stat-grid">
@@ -5345,7 +5351,7 @@
 
         <!-- Ringkasan Cerapan Angin Berperingkat -->
         <div style="border-top: 1px solid var(--border-color); padding-top: 0.65rem;">
-          <h4 style="margin: 0 0 0.4rem 0; font-size: 0.8rem; color: var(--accent-cyan);">Cerapan Angin Mengikut Jam (Hourly Metocean)</h4>
+          <h4 style="margin: 0 0 0.4rem 0; font-size: 0.8rem; color: var(--accent-cyan);">Cerapan Angin Mengikut Jam (Hourly Metocean - Titik Pusat LKP)</h4>
           <div class="iamsar-table-responsive" style="max-height: 150px; overflow-y: auto;">
             <table class="iamsar-data-table" style="font-size: 0.74rem;">
               <thead>
@@ -5402,6 +5408,28 @@
     openMetoceanModal();
   }
 
+  function generateMetocean9PointGrid(centerLat, centerLon, spacingNM = 20) {
+    const dLat = spacingNM / 60.0;
+    const cosLat = Math.cos((centerLat * Math.PI) / 180.0);
+    const dLon = spacingNM / (60.0 * (Math.abs(cosLat) > 0.001 ? Math.abs(cosLat) : 1.0));
+
+    // 9 titik dalam susunan 3x3 mesh:
+    // [0] NW, [1] N, [2] NE
+    // [3] W,  [4] Center (LKP), [5] E
+    // [6] SW, [7] S, [8] SE
+    return [
+      { id: 'NW', name: 'Barat Laut (NW)', lat: centerLat + dLat, lon: centerLon - dLon, isCenter: false },
+      { id: 'N',  name: 'Utara (N)',       lat: centerLat + dLat, lon: centerLon,        isCenter: false },
+      { id: 'NE', name: 'Timur Laut (NE)', lat: centerLat + dLat, lon: centerLon + dLon, isCenter: false },
+      { id: 'W',  name: 'Barat (W)',       lat: centerLat,        lon: centerLon - dLon, isCenter: false },
+      { id: 'C',  name: 'Pusat (LKP)',     lat: centerLat,        lon: centerLon,        isCenter: true  },
+      { id: 'E',  name: 'Timur (E)',       lat: centerLat,        lon: centerLon + dLon, isCenter: false },
+      { id: 'SW', name: 'Barat Daya (SW)', lat: centerLat - dLat, lon: centerLon - dLon, isCenter: false },
+      { id: 'S',  name: 'Selatan (S)',     lat: centerLat - dLat, lon: centerLon,        isCenter: false },
+      { id: 'SE', name: 'Tenggara (SE)',   lat: centerLat - dLat, lon: centerLon + dLon, isCenter: false }
+    ];
+  }
+
   async function fetchMarineMetoceanData() {
     let lat = parseCoordinate(el.originLatInput ? el.originLatInput.value : '', true);
     let lon = parseCoordinate(el.originLonInput ? el.originLonInput.value : '', false);
@@ -5432,11 +5460,13 @@
     }
 
     try {
-      const latFixed = lat.toFixed(4);
-      const lonFixed = lon.toFixed(4);
+      // Jana 9 titik koordinat (3x3 grid mesh) merangkumi radius taktikal operasi SAR
+      const gridPoints = generateMetocean9PointGrid(lat, lon, 20);
+      const latList = gridPoints.map(p => p.lat.toFixed(4)).join(',');
+      const lonList = gridPoints.map(p => p.lon.toFixed(4)).join(',');
 
-      const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latFixed}&longitude=${lonFixed}&hourly=wind_speed_10m,wind_direction_10m,wind_gusts_10m&wind_speed_unit=kn&timezone=auto&past_days=7`;
-      const marineUrl = `https://marine-api.open-meteo.com/v1/marine?latitude=${latFixed}&longitude=${lonFixed}&hourly=ocean_current_velocity,ocean_current_direction,wave_height&timezone=auto&past_days=7`;
+      const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latList}&longitude=${lonList}&hourly=wind_speed_10m,wind_direction_10m,wind_gusts_10m&wind_speed_unit=kn&timezone=auto&past_days=7`;
+      const marineUrl = `https://marine-api.open-meteo.com/v1/marine?latitude=${latList}&longitude=${lonList}&hourly=ocean_current_velocity,ocean_current_direction,wave_height&timezone=auto&past_days=7`;
 
       const [weatherRes, marineRes] = await Promise.all([
         fetch(weatherUrl).then(r => r.ok ? r.json() : null).catch(() => null),
@@ -5447,64 +5477,87 @@
         throw new Error('Gagal menyambung ke pelayan Open-Meteo. Sila periksa sambungan internet anda.');
       }
 
-      // Process Weather / Wind (10m)
-      let matchingWindHours = [];
-      if (weatherRes && weatherRes.hourly && weatherRes.hourly.time) {
-        const times = weatherRes.hourly.time;
-        const speeds = weatherRes.hourly.wind_speed_10m || [];
-        const dirs = weatherRes.hourly.wind_direction_10m || [];
+      // Proses data bagi setiap titik daripada 9 titik grid
+      const gridMetocean = gridPoints.map((pt, idx) => {
+        const wData = Array.isArray(weatherRes) ? weatherRes[idx] : weatherRes;
+        const mData = Array.isArray(marineRes) ? marineRes[idx] : marineRes;
 
-        for (let i = 0; i < times.length; i++) {
-          const t = new Date(times[i]);
-          if (t >= new Date(startDate.getTime() - 1800000) && t <= new Date(endDate.getTime() + 1800000)) {
-            if (speeds[i] !== null && dirs[i] !== null) {
-              matchingWindHours.push({
-                time: times[i],
-                speed: speeds[i],
-                direction: dirs[i]
-              });
+        // Process Weather / Wind (10m)
+        let windHours = [];
+        if (wData && wData.hourly && wData.hourly.time) {
+          const times = wData.hourly.time;
+          const speeds = wData.hourly.wind_speed_10m || [];
+          const dirs = wData.hourly.wind_direction_10m || [];
+
+          for (let i = 0; i < times.length; i++) {
+            const t = new Date(times[i]);
+            if (t >= new Date(startDate.getTime() - 1800000) && t <= new Date(endDate.getTime() + 1800000)) {
+              if (speeds[i] !== null && dirs[i] !== null) {
+                windHours.push({
+                  time: times[i],
+                  speed: speeds[i],
+                  direction: dirs[i]
+                });
+              }
+            }
+          }
+
+          if (windHours.length === 0 && times.length > 0) {
+            const lastIdx = times.length - 1;
+            windHours.push({
+              time: times[lastIdx],
+              speed: speeds[lastIdx] || 10,
+              direction: dirs[lastIdx] || 0
+            });
+          }
+        }
+
+        // Process Marine / Ocean Currents
+        let marineHours = [];
+        if (mData && mData.hourly && mData.hourly.time) {
+          const times = mData.hourly.time;
+          const velocities = mData.hourly.ocean_current_velocity || [];
+          const directions = mData.hourly.ocean_current_direction || [];
+          const waves = mData.hourly.wave_height || [];
+          const rawUnit = mData.hourly_units ? mData.hourly_units.ocean_current_velocity : 'km/h';
+
+          for (let i = 0; i < times.length; i++) {
+            const t = new Date(times[i]);
+            if (t >= new Date(startDate.getTime() - 1800000) && t <= new Date(endDate.getTime() + 1800000)) {
+              if (velocities[i] !== null && directions[i] !== null) {
+                let velKnots = velocities[i];
+                if (rawUnit === 'km/h') velKnots = velocities[i] * 0.539957;
+                else if (rawUnit === 'm/s') velKnots = velocities[i] * 1.94384;
+
+                marineHours.push({
+                  time: times[i],
+                  velocity: velKnots,
+                  rawVelocity: velocities[i],
+                  direction: directions[i],
+                  waveHeight: waves[i] || 0
+                });
+              }
             }
           }
         }
 
-        if (matchingWindHours.length === 0 && times.length > 0) {
-          const lastIdx = times.length - 1;
-          matchingWindHours.push({
-            time: times[lastIdx],
-            speed: speeds[lastIdx] || 10,
-            direction: dirs[lastIdx] || 0
-          });
-        }
-      }
+        return {
+          id: pt.id,
+          name: pt.name,
+          lat: pt.lat,
+          lon: pt.lon,
+          isCenter: pt.isCenter,
+          windHours,
+          marineHours
+        };
+      });
 
-      // Process Marine / Ocean Currents
-      let matchingMarineHours = [];
-      if (marineRes && marineRes.hourly && marineRes.hourly.time) {
-        const times = marineRes.hourly.time;
-        const velocities = marineRes.hourly.ocean_current_velocity || [];
-        const directions = marineRes.hourly.ocean_current_direction || [];
-        const waves = marineRes.hourly.wave_height || [];
-        const rawUnit = marineRes.hourly_units ? marineRes.hourly_units.ocean_current_velocity : 'km/h';
+      state.metoceanGrid = gridMetocean;
 
-        for (let i = 0; i < times.length; i++) {
-          const t = new Date(times[i]);
-          if (t >= new Date(startDate.getTime() - 1800000) && t <= new Date(endDate.getTime() + 1800000)) {
-            if (velocities[i] !== null && directions[i] !== null) {
-              let velKnots = velocities[i];
-              if (rawUnit === 'km/h') velKnots = velocities[i] * 0.539957;
-              else if (rawUnit === 'm/s') velKnots = velocities[i] * 1.94384;
-
-              matchingMarineHours.push({
-                time: times[i],
-                velocity: velKnots,
-                rawVelocity: velocities[i],
-                direction: directions[i],
-                waveHeight: waves[i] || 0
-              });
-            }
-          }
-        }
-      }
+      // Ambil data titik Pusat (Center / LKP) untuk pengiraan rasmi ASW, SC, Leeway & Datum
+      const centerData = gridMetocean.find(p => p.isCenter) || gridMetocean[0];
+      const matchingWindHours = centerData ? centerData.windHours : [];
+      const matchingMarineHours = centerData ? centerData.marineHours : [];
 
       // 1. ASW Vectors
       let avgWindSpeed = 0;
@@ -5627,20 +5680,7 @@
       };
 
       const totalHours = Math.max(1.0, Math.round(((endDate.getTime() - startDate.getTime()) / 3600000) * 10) / 10);
-      if (el.mcTimeSlider) {
-        el.mcTimeSlider.disabled = false;
-        el.mcTimeSlider.max = totalHours;
-        if (!state.monteCarlo.isActive) {
-          state.monteCarlo.maxTime = totalHours;
-          state.monteCarlo.currentTime = 0;
-        }
-      }
-      if (el.mcSliderMaxTime) {
-        el.mcSliderMaxTime.textContent = `T + ${totalHours.toFixed(1)} Jam`;
-      }
-      if (el.mcTimelineBar) {
-        el.mcTimelineBar.style.display = 'flex';
-      }
+      updateTimeSliderAvailability(totalHours);
 
       if (state.displayMode === 'map') {
         updateLeafletMap();
@@ -6677,6 +6717,32 @@
     showToast(`🗺️ Corak carian berjaya dipaparkan pada peta laut!`);
   }
 
+  function updateTimeSliderAvailability(hours) {
+    const totalHours = Math.max(1.0, Math.round(hours * 10) / 10);
+    state.monteCarlo.maxTime = totalHours;
+    if (el.mcTimeSlider) {
+      el.mcTimeSlider.disabled = false;
+      el.mcTimeSlider.max = totalHours;
+      if (state.monteCarlo.currentTime > totalHours) {
+        state.monteCarlo.currentTime = totalHours;
+      }
+    }
+    if (el.mcSliderMaxTime) {
+      el.mcSliderMaxTime.textContent = `T + ${totalHours.toFixed(1)} Jam`;
+    }
+    if (el.btnMcPlay) {
+      el.btnMcPlay.disabled = false;
+      el.btnMcPlay.title = "Main / Jeda Simulasi Masa";
+    }
+    if (el.btnMcReset) {
+      el.btnMcReset.disabled = false;
+    }
+    if (el.mcTimelineBar) {
+      el.mcTimelineBar.style.display = 'flex';
+    }
+    updateMonteCarloTimeUI();
+  }
+
   function calculateTimeInterval() {
     if (!el.distressDateTimeInput || !el.datumDateTimeInput || !el.datumIntervalInput) return;
     
@@ -6692,8 +6758,10 @@
         if (diffHours >= 0) {
           const rounded = Math.round(diffHours * 100) / 100;
           el.datumIntervalInput.value = rounded.toFixed(2);
+          updateTimeSliderAvailability(rounded);
         } else {
           el.datumIntervalInput.value = '0.00';
+          updateTimeSliderAvailability(0);
         }
       }
     }
@@ -6708,6 +6776,7 @@
       const newDatumTime = new Date(tDistress + intervalHours * 3600 * 1000);
       newDatumTime.setMinutes(newDatumTime.getMinutes() - newDatumTime.getTimezoneOffset());
       el.datumDateTimeInput.value = newDatumTime.toISOString().slice(0, 16);
+      updateTimeSliderAvailability(intervalHours);
     }
   }
 
@@ -9034,6 +9103,39 @@
   // ANIMASI ALIRAN ZARAH ANGIN & ARUS LAUT ALA WINDY (WINDY-STYLE STREAMLINES & VECTOR GRID)
   // =========================================================================
 
+  function getTacticalOperationalArea() {
+    let centerLat = state.originGeo.lat || DEFAULT_ORIGIN_GEO.lat;
+    let centerLon = state.originGeo.lon || DEFAULT_ORIGIN_GEO.lon;
+
+    if (state.finalDatum && typeof state.finalDatum.lat === 'number' && typeof state.finalDatum.lon === 'number') {
+      centerLat = (centerLat + state.finalDatum.lat) / 2.0;
+      centerLon = (centerLon + state.finalDatum.lon) / 2.0;
+    }
+
+    const totalDriftDist = state.finalDatum ? (state.finalDatum.totalDriftDist || state.finalDatum.dist || 0) : 0;
+    const searchRadius = (state.planning && state.planning.alloc && state.planning.alloc.r) || (state.planning && state.planning.zta && state.planning.zta.sr) || 5.0;
+    const opsRadiusNM = Math.max(25.0, totalDriftDist + searchRadius + 15.0);
+
+    return { centerLat, centerLon, opsRadiusNM };
+  }
+
+  function spawnWindyParticle(p, w, h, centerPx, opsRadiusPx) {
+    if (centerPx && opsRadiusPx > 10) {
+      const r = (opsRadiusPx * 0.95) * Math.sqrt(Math.random());
+      const theta = Math.random() * 2 * Math.PI;
+      p.x = centerPx.x + r * Math.cos(theta);
+      p.y = centerPx.y + r * Math.sin(theta);
+    } else {
+      p.x = Math.random() * w;
+      p.y = Math.random() * h;
+    }
+    p.oldX = p.x;
+    p.oldY = p.y;
+    p.age = Math.floor(Math.random() * 40);
+    p.maxAge = 40 + Math.floor(Math.random() * 50);
+    p.speedMult = 0.8 + Math.random() * 0.4;
+  }
+
   function initWindyParticles() {
     if (!el.windyFlowCanvas) return;
     const count = state.flowField.particleCount || 650;
@@ -9041,16 +9143,20 @@
     const h = el.windyFlowCanvas.height || 600;
     const particles = [];
 
+    let centerPx = null;
+    let opsRadiusPx = 0;
+    if (leafletMap) {
+      const { centerLat, centerLon, opsRadiusNM } = getTacticalOperationalArea();
+      const cPoint = leafletMap.latLngToContainerPoint([centerLat, centerLon]);
+      const edgePoint = leafletMap.latLngToContainerPoint([centerLat + (opsRadiusNM / 60.0), centerLon]);
+      centerPx = cPoint;
+      opsRadiusPx = Math.max(25, Math.hypot(edgePoint.x - cPoint.x, edgePoint.y - cPoint.y));
+    }
+
     for (let i = 0; i < count; i++) {
-      particles.push({
-        x: Math.random() * w,
-        y: Math.random() * h,
-        oldX: 0,
-        oldY: 0,
-        age: Math.floor(Math.random() * 60),
-        maxAge: 40 + Math.floor(Math.random() * 50),
-        speedMult: 0.8 + Math.random() * 0.4
-      });
+      const p = { x: 0, y: 0, oldX: 0, oldY: 0, age: 0, maxAge: 50, speedMult: 1.0 };
+      spawnWindyParticle(p, w, h, centerPx, opsRadiusPx);
+      particles.push(p);
     }
     state.flowField.particles = particles;
   }
@@ -9067,7 +9173,98 @@
     }
   }
 
-  function getMetoceanVectorAtTime(simHour = 0, mode = 'wind') {
+  function getInterpolatedMetoceanVector(lat, lon, simHour = 0, mode = 'wind') {
+    if (!state.metoceanGrid || state.metoceanGrid.length === 0) {
+      return null;
+    }
+
+    let totalWeight = 0;
+    let sumU = 0;
+    let sumV = 0;
+    let fallbackDir = 0;
+    let fallbackSpeed = 0;
+    let count = 0;
+
+    for (let i = 0; i < state.metoceanGrid.length; i++) {
+      const pt = state.metoceanGrid[i];
+      let speed = 0;
+      let dir = 0;
+      let flowHeading = 0;
+
+      if (mode === 'wind') {
+        const list = pt.windHours || [];
+        if (list.length > 0) {
+          const idx = Math.min(Math.max(0, Math.floor(simHour)), list.length - 1);
+          speed = list[idx].speed;
+          dir = list[idx].direction;
+        } else if (state.aswResultant && state.aswResultant.avgSpeed > 0) {
+          speed = state.aswResultant.avgSpeed;
+          dir = state.aswResultant.bearing;
+        } else {
+          speed = parseFloat(el.aswSpeedInput?.value) || 12.0;
+          dir = parseFloat(el.aswBearingInput?.value) || 45.0;
+        }
+        flowHeading = ((dir + 180) % 360 + 360) % 360;
+      } else if (mode === 'current') {
+        const list = pt.marineHours || [];
+        if (list.length > 0) {
+          const idx = Math.min(Math.max(0, Math.floor(simHour)), list.length - 1);
+          speed = list[idx].velocity;
+          dir = list[idx].direction;
+        } else if (state.scResultant && state.scResultant.speed > 0) {
+          speed = state.scResultant.speed;
+          dir = state.scResultant.bearing;
+        } else {
+          speed = parseFloat(el.scSpeedInput?.value) || 1.5;
+          dir = parseFloat(el.scBearingInput?.value) || 220.0;
+        }
+        flowHeading = ((dir % 360) + 360) % 360;
+      }
+
+      fallbackDir = dir;
+      fallbackSpeed = speed;
+
+      const dLat = lat - pt.lat;
+      const dLon = (lon - pt.lon) * Math.cos((pt.lat * Math.PI) / 180.0);
+      const distSq = dLat * dLat + dLon * dLon;
+
+      if (distSq < 1e-7) {
+        return { speed, dir, flowHeading };
+      }
+
+      const weight = 1.0 / distSq;
+      const rad = ((90 - flowHeading) * Math.PI) / 180.0;
+      const u = Math.cos(rad) * speed;
+      const v = Math.sin(rad) * speed;
+
+      sumU += u * weight;
+      sumV += v * weight;
+      totalWeight += weight;
+      count++;
+    }
+
+    if (totalWeight > 0 && count > 0) {
+      const avgU = sumU / totalWeight;
+      const avgV = sumV / totalWeight;
+      const speed = Math.hypot(avgU, avgV);
+      const flowHeading = ((cartesianToNauticalBearing(avgU, avgV) % 360) + 360) % 360;
+      const dir = mode === 'wind' ? ((flowHeading + 180) % 360) : flowHeading;
+      return { speed, dir, flowHeading };
+    }
+
+    return {
+      speed: fallbackSpeed,
+      dir: fallbackDir,
+      flowHeading: mode === 'wind' ? ((fallbackDir + 180) % 360) : ((fallbackDir % 360 + 360) % 360)
+    };
+  }
+
+  function getMetoceanVectorAtTime(simHour = 0, mode = 'wind', lat = null, lon = null) {
+    if (lat !== null && lon !== null && state.metoceanGrid && state.metoceanGrid.length > 0) {
+      const interpolated = getInterpolatedMetoceanVector(lat, lon, simHour, mode);
+      if (interpolated) return interpolated;
+    }
+
     let speed = 0;
     let dir = 0; // Arah kompas asal
     let flowHeading = 0; // Arah zarah mengalir di skrin
@@ -9108,8 +9305,9 @@
     return { speed, dir, flowHeading };
   }
 
-  function getWindyFlowColor(speed, mode, lifeRatio) {
-    const alpha = 0.35 + Math.max(0, Math.min(1, Math.sin(lifeRatio * Math.PI))) * 0.65;
+  function getWindyFlowColor(speed, mode, lifeRatio, edgeFade = 1.0) {
+    const baseAlpha = 0.35 + Math.max(0, Math.min(1, Math.sin(lifeRatio * Math.PI))) * 0.65;
+    const alpha = Math.max(0, Math.min(1, baseAlpha * edgeFade));
     if (mode === 'wind') {
       if (speed < 8) return `rgba(14, 165, 233, ${alpha})`; // Bright Sky Cyan
       if (speed < 16) return `rgba(16, 185, 129, ${alpha})`; // Vivid Emerald Green
@@ -9122,31 +9320,58 @@
     }
   }
 
-  function drawVectorGridOverlay(ctx, width, height, vector, mode) {
-    if (!state.flowField.showGridArrows || !vector || vector.speed <= 0.05) return;
+  function drawVectorGridOverlay(ctx, width, height, mode, simHour = 0, centerPx = null, opsRadiusPx = 0) {
+    if (!state.flowField.showGridArrows) return;
 
     const spacing = 110;
-    const rad = ((90 - vector.flowHeading) * Math.PI) / 180;
-    const arrowLen = Math.max(16, Math.min(32, 16 + vector.speed * (mode === 'wind' ? 0.6 : 6.0)));
-    const dx = Math.cos(rad) * arrowLen;
-    const dy = -Math.sin(rad) * arrowLen;
-
     ctx.save();
     ctx.font = '600 10px "JetBrains Mono", Consolas, monospace';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    const arrowColor = mode === 'wind' ? '#38bdf8' : '#a78bfa';
+    const arrowColorHex = mode === 'wind' ? '#38bdf8' : '#a78bfa';
     const textColor = mode === 'wind' ? '#e0f2fe' : '#ede9fe';
 
     for (let x = spacing * 0.6; x < width; x += spacing) {
       for (let y = spacing * 0.6; y < height; y += spacing) {
+        let fade = 1.0;
+        let lat = null;
+        let lon = null;
+
+        if (centerPx && opsRadiusPx > 10) {
+          const dist = Math.hypot(x - centerPx.x, y - centerPx.y);
+          if (dist > opsRadiusPx * 1.05) {
+            continue; // Di luar kawasan operasi taktikal SAR
+          }
+          if (dist > opsRadiusPx * 0.8) {
+            fade = Math.max(0.1, 1.0 - (dist - opsRadiusPx * 0.8) / (opsRadiusPx * 0.25));
+          }
+        }
+
+        if (leafletMap) {
+          try {
+            const ll = leafletMap.containerPointToLatLng([x, y]);
+            lat = ll.lat;
+            lon = ll.lng;
+          } catch (e) {}
+        }
+
+        const vector = getMetoceanVectorAtTime(simHour, mode, lat, lon);
+        if (!vector || vector.speed <= 0.05) continue;
+
+        const rad = ((90 - vector.flowHeading) * Math.PI) / 180;
+        const arrowLen = Math.max(16, Math.min(32, 16 + vector.speed * (mode === 'wind' ? 0.6 : 6.0)));
+        const dx = Math.cos(rad) * arrowLen;
+        const dy = -Math.sin(rad) * arrowLen;
+
+        ctx.globalAlpha = fade;
+
         // Lukis Batang Panah & Kepala Panah
         const endX = x + dx;
         const endY = y + dy;
 
-        ctx.strokeStyle = arrowColor;
-        ctx.fillStyle = arrowColor;
+        ctx.strokeStyle = arrowColorHex;
+        ctx.fillStyle = arrowColorHex;
         ctx.lineWidth = 1.8;
 
         ctx.beginPath();
@@ -9171,8 +9396,8 @@
         const textWidth = ctx.measureText(badgeText).width;
         const badgeY = y - 10;
 
-        ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+        ctx.fillStyle = `rgba(15, 23, 42, ${0.75 * fade})`;
+        ctx.strokeStyle = `rgba(255, 255, 255, ${0.15 * fade})`;
         ctx.lineWidth = 0.8;
         ctx.beginPath();
         ctx.roundRect(x - textWidth / 2 - 4, badgeY - 7, textWidth + 8, 14, 3);
@@ -9215,7 +9440,17 @@
 
     const mode = state.flowField.mode;
     const simHour = state.monteCarlo.currentTime || 0;
-    const vector = getMetoceanVectorAtTime(simHour, mode);
+
+    // Dapatkan sempadan bulatan kawasan operasi taktikal SAR
+    let centerPx = null;
+    let opsRadiusPx = 0;
+    if (leafletMap) {
+      const { centerLat, centerLon, opsRadiusNM } = getTacticalOperationalArea();
+      const cPoint = leafletMap.latLngToContainerPoint([centerLat, centerLon]);
+      const edgePoint = leafletMap.latLngToContainerPoint([centerLat + (opsRadiusNM / 60.0), centerLon]);
+      centerPx = cPoint;
+      opsRadiusPx = Math.max(25, Math.hypot(edgePoint.x - cPoint.x, edgePoint.y - cPoint.y));
+    }
 
     // 1. Trail Fade (Destination-Out) untuk kesan streamline Windy yang halus
     ctx.save();
@@ -9224,39 +9459,62 @@
     ctx.fillRect(0, 0, w, h);
     ctx.restore();
 
-    // 2. Simulasi & Lukisan Zarah Aliran
-    if (vector.speed > 0.05) {
-      const flowRad = ((90 - vector.flowHeading) * Math.PI) / 180;
-      const baseDx = Math.cos(flowRad);
-      const baseDy = -Math.sin(flowRad);
-      const baseStep = Math.max(0.6, vector.speed * (mode === 'wind' ? 0.24 : 1.8)) * state.flowField.speedFactor;
+    // 2. Simulasi & Lukisan Zarah Aliran dalam Kawasan Taktikal SAR
+    const particles = state.flowField.particles;
+    if (particles.length === 0) initWindyParticles();
 
-      const particles = state.flowField.particles;
-      if (particles.length === 0) initWindyParticles();
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      p.oldX = p.x;
+      p.oldY = p.y;
 
-      for (let i = 0; i < particles.length; i++) {
-        const p = particles[i];
-        p.oldX = p.x;
-        p.oldY = p.y;
+      let pLat = null;
+      let pLon = null;
+      if (leafletMap) {
+        try {
+          const ll = leafletMap.containerPointToLatLng([p.x, p.y]);
+          pLat = ll.lat;
+          pLon = ll.lng;
+        } catch (e) {}
+      }
+
+      const pVec = getMetoceanVectorAtTime(simHour, mode, pLat, pLon);
+      const speed = pVec ? pVec.speed : 0;
+      const heading = pVec ? pVec.flowHeading : 0;
+
+      if (speed > 0.05) {
+        const flowRad = ((90 - heading) * Math.PI) / 180;
+        const baseDx = Math.cos(flowRad);
+        const baseDy = -Math.sin(flowRad);
+        const baseStep = Math.max(0.6, speed * (mode === 'wind' ? 0.24 : 1.8)) * state.flowField.speedFactor;
 
         const step = baseStep * p.speedMult;
         p.x += baseDx * step;
         p.y += baseDy * step;
-        p.age++;
+      }
+      p.age++;
 
-        // Semak sempadan atau umur tamat
-        if (p.age >= p.maxAge || p.x < 0 || p.x > w || p.y < 0 || p.y > h) {
-          p.x = Math.random() * w;
-          p.y = Math.random() * h;
-          p.oldX = p.x;
-          p.oldY = p.y;
-          p.age = 0;
-          p.maxAge = 40 + Math.floor(Math.random() * 50);
-          continue;
+      // Semak jarak terhadap pusat operasi SAR & sempadan skrin
+      let distFromCenter = centerPx ? Math.hypot(p.x - centerPx.x, p.y - centerPx.y) : 0;
+      const isOutsideOps = centerPx && opsRadiusPx > 10 && distFromCenter > opsRadiusPx * 1.15;
+      const isOutsideScreen = p.x < -20 || p.x > w + 20 || p.y < -20 || p.y > h + 20;
+
+      if (p.age >= p.maxAge || isOutsideOps || isOutsideScreen) {
+        spawnWindyParticle(p, w, h, centerPx, opsRadiusPx);
+        continue;
+      }
+
+      // Soft radial edge fade berdekatan sempadan radius operasi
+      let edgeFade = 1.0;
+      if (centerPx && opsRadiusPx > 10) {
+        const edgeRatio = distFromCenter / opsRadiusPx;
+        if (edgeRatio >= 0.8) {
+          edgeFade = Math.max(0, 1.0 - (edgeRatio - 0.8) / 0.35);
         }
+      }
 
-        // Lukis garis segmen zarah
-        const color = getWindyFlowColor(vector.speed, mode, p.age / p.maxAge);
+      if (edgeFade > 0.02 && speed > 0.05) {
+        const color = getWindyFlowColor(speed, mode, p.age / p.maxAge, edgeFade);
         ctx.beginPath();
         ctx.moveTo(p.oldX, p.oldY);
         ctx.lineTo(p.x, p.y);
@@ -9265,11 +9523,11 @@
         ctx.lineCap = 'round';
         ctx.stroke();
       }
+    }
 
-      // 3. Lukis Grid Anak Panah jika diaktifkan
-      if (state.flowField.showGridArrows) {
-        drawVectorGridOverlay(ctx, w, h, vector, mode);
-      }
+    // 3. Lukis Grid Anak Panah jika diaktifkan (bertopeng radius taktikal)
+    if (state.flowField.showGridArrows) {
+      drawVectorGridOverlay(ctx, w, h, mode, simHour, centerPx, opsRadiusPx);
     }
 
     state.flowField.animId = requestAnimationFrame(renderWindyFlowLoop);
@@ -9621,7 +9879,6 @@
   }
 
   function toggleMonteCarloPlay() {
-    if (!state.monteCarlo.isActive) return;
     if (state.monteCarlo.isPlaying) {
       pauseMonteCarlo();
     } else {
@@ -9630,7 +9887,6 @@
   }
 
   function playMonteCarlo() {
-    if (!state.monteCarlo.isActive) return;
     if (state.monteCarlo.currentTime >= state.monteCarlo.maxTime - 0.05) {
       state.monteCarlo.currentTime = 0;
     }
@@ -9678,27 +9934,31 @@
   }
 
   function monteCarloAnimationLoop(timestamp) {
-    if (!state.monteCarlo.isPlaying || !state.monteCarlo.isActive) return;
+    if (!state.monteCarlo.isPlaying) return;
 
     const dt = (timestamp - state.monteCarlo.lastTimestamp) / 1000.0;
     state.monteCarlo.lastTimestamp = timestamp;
 
-    // Di 1x speed, mengambil masa ~8 saat untuk melengkapkan animasi simulasi
+    const maxT = Math.max(1.0, state.monteCarlo.maxTime);
     const speed = state.monteCarlo.playbackSpeed || 1.0;
-    const timeDelta = (dt * speed) * (state.monteCarlo.maxTime / 8.0);
+    const timeDelta = (dt * speed) * (maxT / 8.0);
 
     state.monteCarlo.currentTime += timeDelta;
 
-    if (state.monteCarlo.currentTime >= state.monteCarlo.maxTime) {
-      state.monteCarlo.currentTime = state.monteCarlo.maxTime;
+    if (state.monteCarlo.currentTime >= maxT) {
+      state.monteCarlo.currentTime = maxT;
       updateMonteCarloTimeUI();
-      renderMonteCarloFrame();
+      if (state.monteCarlo.isActive) {
+        renderMonteCarloFrame();
+      }
       pauseMonteCarlo();
       return;
     }
 
     updateMonteCarloTimeUI();
-    renderMonteCarloFrame();
+    if (state.monteCarlo.isActive) {
+      renderMonteCarloFrame();
+    }
     requestAnimationFrame(monteCarloAnimationLoop);
   }
 
