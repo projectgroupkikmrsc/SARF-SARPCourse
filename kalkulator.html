@@ -11,7 +11,7 @@
   <!-- Leaflet.js CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
   
-  <link rel="stylesheet" href="style.css?v=5.5">
+  <link rel="stylesheet" href="style.css?v=6.0">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -3247,27 +3247,27 @@
           <!-- Floating Map Layers & Vector Overlays Toggle Bar (Atas Kiri Peta) -->
           <div class="map-overlay-layer-controls" id="map-overlay-controls" style="display: none;">
             <div class="map-overlay-btn-group">
-              <button type="button" class="map-layer-pill active" id="btn-toggle-wc-layer" data-map-layer="wc" onclick="window.toggleMapLayer && window.toggleMapLayer('wc', this)" title="Togol Vektor Wind Current (WC)">
+              <button type="button" class="map-layer-pill active" id="btn-toggle-wc-layer" data-map-layer="wc" title="Togol Vektor Wind Current (WC)">
                 <span class="pill-icon">💨</span>
                 <span class="pill-label">Vektor WC</span>
               </button>
-              <button type="button" class="map-layer-pill active" id="btn-toggle-sc-layer" data-map-layer="sc" onclick="window.toggleMapLayer && window.toggleMapLayer('sc', this)" title="Togol Vektor Sea Current (SC / Arus Laut)">
+              <button type="button" class="map-layer-pill active" id="btn-toggle-sc-layer" data-map-layer="sc" title="Togol Vektor Sea Current (SC / Arus Laut)">
                 <span class="pill-icon">🌊</span>
                 <span class="pill-label">Vektor SC</span>
               </button>
-              <button type="button" class="map-layer-pill active" id="btn-toggle-leeway-layer" data-map-layer="leeway" onclick="window.toggleMapLayer && window.toggleMapLayer('leeway', this)" title="Togol Vektor Hanyutan Angin (Leeway)">
+              <button type="button" class="map-layer-pill active" id="btn-toggle-leeway-layer" data-map-layer="leeway" title="Togol Vektor Hanyutan Angin (Leeway)">
                 <span class="pill-icon">🌬️</span>
                 <span class="pill-label">Vektor Leeway</span>
               </button>
-              <button type="button" class="map-layer-pill active" id="btn-toggle-drift-layer" data-map-layer="driftTriangle" onclick="window.toggleMapLayer && window.toggleMapLayer('driftTriangle', this)" title="Togol Segitiga Hanyutan (Paduan TWC + Leeway)">
+              <button type="button" class="map-layer-pill active" id="btn-toggle-drift-layer" data-map-layer="driftTriangle" title="Togol Segitiga Hanyutan (Paduan TWC + Leeway)">
                 <span class="pill-icon">📐</span>
                 <span class="pill-label">Segitiga Hanyutan</span>
               </button>
-              <button type="button" class="map-layer-pill active" id="btn-toggle-radius-layer" data-map-layer="datumRadius" onclick="window.toggleMapLayer && window.toggleMapLayer('datumRadius', this)" title="Togol Radius &amp; Garisan DD (R / At)">
+              <button type="button" class="map-layer-pill active" id="btn-toggle-radius-layer" data-map-layer="datumRadius" title="Togol Radius &amp; Garisan DD (R / At)">
                 <span class="pill-icon">🎯</span>
                 <span class="pill-label">Radius (R)</span>
               </button>
-              <button type="button" class="map-layer-pill active" id="btn-toggle-pattern-layer" data-map-layer="searchTracks" onclick="window.toggleMapLayer && window.toggleMapLayer('searchTracks', this)" title="Togol Corak Laluan Carian &amp; Waypoints">
+              <button type="button" class="map-layer-pill active" id="btn-toggle-pattern-layer" data-map-layer="searchTracks" title="Togol Corak Laluan Carian &amp; Waypoints">
                 <span class="pill-icon">🧭</span>
                 <span class="pill-label">Laluan Carian</span>
               </button>
@@ -3277,13 +3277,13 @@
           <!-- Floating Flow Controls (Menegak Bawah Butang Zoom - Kanan) -->
           <div class="map-flow-vertical-controls" id="map-flow-controls" style="display: none;">
             <div class="map-flow-vertical-btn-group">
-              <button type="button" class="map-flow-icon-btn active" id="btn-toggle-flow-wind" data-flow-mode="wind" onclick="window.toggleFlowMode && window.toggleFlowMode('wind', this)" title="Animasi Aliran Zarah Angin (Wind Streamlines)">
+              <button type="button" class="map-flow-icon-btn active" id="btn-toggle-flow-wind" data-flow-mode="wind" title="Animasi Aliran Zarah Angin (Wind Streamlines)">
                 💨
               </button>
-              <button type="button" class="map-flow-icon-btn" id="btn-toggle-flow-current" data-flow-mode="current" onclick="window.toggleFlowMode && window.toggleFlowMode('current', this)" title="Animasi Aliran Zarah Arus Laut (Ocean Current Streamlines)">
+              <button type="button" class="map-flow-icon-btn" id="btn-toggle-flow-current" data-flow-mode="current" title="Animasi Aliran Zarah Arus Laut (Ocean Current Streamlines)">
                 🌊
               </button>
-              <button type="button" class="map-flow-icon-btn active" id="btn-toggle-flow-grid" data-flow-mode="grid" onclick="window.toggleFlowMode && window.toggleFlowMode('grid', this)" title="Grid Anak Panah Kelajuan (Velocity Grid)">
+              <button type="button" class="map-flow-icon-btn active" id="btn-toggle-flow-grid" data-flow-mode="grid" title="Grid Anak Panah Kelajuan (Velocity Grid)">
                 🏹
               </button>
             </div>
@@ -3443,9 +3443,9 @@
     }
   </script>
   <!-- Data Garis Pantai & Poligon Darat (Offline Land-Sea Mask) -->
-  <script src="land_data.js?v=5.5"></script>
+  <script src="land_data.js?v=6.0"></script>
   <!-- Script Utama -->
-  <script src="app.js?v=5.5"></script>
+  <script src="app.js?v=6.0"></script>
   <script>
     (function() {
       try {
