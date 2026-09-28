@@ -954,7 +954,7 @@
     originLonInput: document.getElementById('origin-lon'),
     btnPickLocation: document.getElementById('btn-pick-location'),
     btnFetchMetocean: document.getElementById('btn-fetch-metocean'),
-    btnFetchMetoceanHeader: document.getElementById('btn-fetch-metocean-header'),
+    btnMetoceanInfoHeader: document.getElementById('btn-metocean-info-header'),
     btnFetchMetoceanAsw: document.getElementById('btn-fetch-metocean-asw'),
     btnFetchMetoceanTwc: document.getElementById('btn-fetch-metocean-twc'),
     iconFetchMetocean: document.getElementById('icon-fetch-metocean'),
@@ -5286,6 +5286,81 @@
     }
   }
 
+  function openMetoceanInfoModal() {
+    if (!el.metoceanModalBody) return;
+
+    const html = `
+      <div style="display: flex; flex-direction: column; gap: 0.9rem; font-family: 'Outfit', sans-serif;">
+        <div style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: var(--radius-sm); padding: 0.85rem; font-size: 0.82rem; line-height: 1.5;">
+          <h4 style="margin: 0 0 0.35rem 0; color: #38bdf8; font-size: 0.92rem; display: flex; align-items: center; gap: 0.4rem;">
+            <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+            <span>Sumber Data Meteorologi &amp; Oseanografi (Metocean)</span>
+          </h4>
+          <p style="margin: 0; color: var(--text-color);">
+            Aplikasi ini diintegrasikan dengan API cerapan data satelit dan model numerikal marin bertaraf antarabangsa bagi menyokong pengiraan perancangan operasi Mencari dan Menyelamat (SAR):
+          </p>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr; gap: 0.75rem;">
+          <!-- Card 1: Angin ASW -->
+          <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.8rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem;">
+              <span style="font-size: 1.15rem;">💨</span>
+              <strong style="color: #38bdf8; font-size: 0.86rem;">1. Data Angin Permukaan 10m (ASW)</strong>
+            </div>
+            <div style="font-size: 0.78rem; color: var(--text-muted); line-height: 1.5;">
+              <div><strong>Pembekal:</strong> <a href="https://open-meteo.com" target="_blank" rel="noopener noreferrer" style="color: #38bdf8; text-decoration: underline;">Open-Meteo Weather Forecast API</a></div>
+              <div><strong>Model Utama:</strong> Penyatuan konsensus model atmosfera resolusi tinggi <em>ECMWF (European Centre for Medium-Range Weather Forecasts)</em>, <em>DWD ICON (German Weather Service)</em>, dan <em>NOAA GFS (Global Forecast System)</em>.</div>
+              <div style="margin-top: 0.2rem; color: #94a3b8;">Membekalkan purata arah datang (FROM) dan kelajuan angin setiap jam di titik LKP.</div>
+            </div>
+          </div>
+
+          <!-- Card 2: Arus Laut SC -->
+          <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.8rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem;">
+              <span style="font-size: 1.15rem;">🌊</span>
+              <strong style="color: #a78bfa; font-size: 0.86rem;">2. Data Arus Laut &amp; Fizik Marin (SC / TWC)</strong>
+            </div>
+            <div style="font-size: 0.78rem; color: var(--text-muted); line-height: 1.5;">
+              <div><strong>Pembekal:</strong> <a href="https://open-meteo.com/en/docs/marine-weather-api" target="_blank" rel="noopener noreferrer" style="color: #a78bfa; text-decoration: underline;">Open-Meteo Marine Weather API</a></div>
+              <div><strong>Model Utama:</strong> <em>Copernicus Marine Environment Monitoring Service (CMEMS)</em> dan <em>Mercator Ocean International Global Physical Analysis</em>.</div>
+              <div style="margin-top: 0.2rem; color: #94a3b8;">Membekalkan halaju dan arah aliran arus laut permukaan (Set &amp; Drift) secara dinamik.</div>
+            </div>
+          </div>
+
+          <!-- Card 3: 9-Point Mesh & Masking -->
+          <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.8rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem;">
+              <span style="font-size: 1.15rem;">🌐</span>
+              <strong style="color: #34d399; font-size: 0.86rem;">3. Jaringan Grid 9-Titik (3x3 Mesh) &amp; Penopengan Taktikal</strong>
+            </div>
+            <div style="font-size: 0.78rem; color: var(--text-muted); line-height: 1.5;">
+              <div><strong>Metodologi:</strong> 9 titik cerapan di sekitar LKP (sela 20 NM) dimuat turun serentak.</div>
+              <div><strong>Interpolasi &amp; Paparan:</strong> Menggunakan algoritma <em>Inverse Distance Weighting (IDW)</em> dan ditopeng kemas mengikut <strong>Radius Kawasan Operasi SAR (R_ops)</strong> berpandukan standard <strong>IAMSAR Manual Vol II</strong>.</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.3rem;">
+          <button type="button" class="btn btn-outline" id="btn-close-metocean-info" style="padding: 0.45rem 1.1rem; font-size: 0.8rem;">
+            <span>Tutup</span>
+          </button>
+        </div>
+      </div>
+    `;
+
+    el.metoceanModalBody.innerHTML = html;
+
+    const btnClose = document.getElementById('btn-close-metocean-info');
+    if (btnClose) {
+      btnClose.addEventListener('click', () => {
+        closeMetoceanModal();
+      });
+    }
+
+    openMetoceanModal();
+  }
+
   function renderMetoceanSummaryModal(data) {
     if (!el.metoceanModalBody) return;
 
@@ -8358,9 +8433,9 @@
       });
     }
 
-    if (el.btnFetchMetoceanHeader) {
-      el.btnFetchMetoceanHeader.addEventListener('click', () => {
-        fetchMarineMetoceanData();
+    if (el.btnMetoceanInfoHeader) {
+      el.btnMetoceanInfoHeader.addEventListener('click', () => {
+        openMetoceanInfoModal();
       });
     }
 
