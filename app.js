@@ -10110,13 +10110,23 @@
       }
     });
 
-    // Dynamic Observer untuk Canvas Wrapper (Auto-render bila layout siap)
+    // Dynamic Observer untuk Canvas Wrapper (Auto-render & Auto-Fit bila layout siap)
     if (window.ResizeObserver && el.canvasWrapper) {
+      let initialSized = false;
       const ro = new ResizeObserver((entries) => {
         for (const entry of entries) {
           if (entry.contentRect.width > 0 && entry.contentRect.height > 0) {
             if (state.displayMode === 'grid') {
-              resizeCanvas();
+              if (!initialSized) {
+                initialSized = true;
+                if (state.vectors && state.vectors.length > 0) {
+                  autoFitView();
+                } else {
+                  resetPanZoom();
+                }
+              } else {
+                resizeCanvas();
+              }
             }
           }
         }
@@ -11119,36 +11129,28 @@
     updateFlowButtonsUI();
     syncMapOverlaysVisibility();
 
-    // Jaminan render graf awal pada permulaan muat turun halaman
-    if (state.displayMode === 'grid') {
-      if (state.vectors && state.vectors.length > 0) {
-        autoFitView();
-      } else {
-        resetPanZoom();
+    // Jaminan render graf awal & Auto Fit pada permulaan muat turun halaman
+    const triggerInitialFit = () => {
+      if (state.displayMode === 'grid') {
+        if (state.vectors && state.vectors.length > 0) {
+          autoFitView();
+        } else {
+          resetPanZoom();
+        }
       }
-      resizeCanvas();
-    }
+    };
 
-    requestAnimationFrame(() => {
-      if (state.displayMode === 'grid') {
-        resizeCanvas();
-      }
+    triggerInitialFit();
+    requestAnimationFrame(triggerInitialFit);
+    setTimeout(triggerInitialFit, 50);
+    setTimeout(triggerInitialFit, 150);
+    setTimeout(triggerInitialFit, 300);
+    setTimeout(triggerInitialFit, 600);
+
+    window.addEventListener('load', () => {
+      triggerInitialFit();
+      setTimeout(triggerInitialFit, 100);
     });
-    setTimeout(() => {
-      if (state.displayMode === 'grid') {
-        resizeCanvas();
-      }
-    }, 50);
-    setTimeout(() => {
-      if (state.displayMode === 'grid') {
-        resizeCanvas();
-      }
-    }, 150);
-    setTimeout(() => {
-      if (state.displayMode === 'grid') {
-        resizeCanvas();
-      }
-    }, 300);
   });
 
 })();
