@@ -10110,7 +10110,7 @@
       }
     });
 
-    // Dynamic Observer untuk Canvas Wrapper (Auto-render & Auto-Fit bila layout siap)
+    // Dynamic Observer untuk Canvas Wrapper (Auto-render & Pusatkan Origin bila layout siap)
     if (window.ResizeObserver && el.canvasWrapper) {
       let initialSized = false;
       const ro = new ResizeObserver((entries) => {
@@ -10119,11 +10119,7 @@
             if (state.displayMode === 'grid') {
               if (!initialSized) {
                 initialSized = true;
-                if (state.vectors && state.vectors.length > 0) {
-                  autoFitView();
-                } else {
-                  resetPanZoom();
-                }
+                resetPanZoom();
               } else {
                 resizeCanvas();
               }
@@ -11129,27 +11125,23 @@
     updateFlowButtonsUI();
     syncMapOverlaysVisibility();
 
-    // Jaminan render graf awal & Auto Fit pada permulaan muat turun halaman
-    const triggerInitialFit = () => {
+    // Jaminan render graf awal dengan Pusatkan Origin (0,0) pada permulaan muat turun halaman
+    const triggerCenterOrigin = () => {
       if (state.displayMode === 'grid') {
-        if (state.vectors && state.vectors.length > 0) {
-          autoFitView();
-        } else {
-          resetPanZoom();
-        }
+        resetPanZoom();
       }
     };
 
-    triggerInitialFit();
-    requestAnimationFrame(triggerInitialFit);
-    setTimeout(triggerInitialFit, 50);
-    setTimeout(triggerInitialFit, 150);
-    setTimeout(triggerInitialFit, 300);
-    setTimeout(triggerInitialFit, 600);
+    triggerCenterOrigin();
+    requestAnimationFrame(triggerCenterOrigin);
+    setTimeout(triggerCenterOrigin, 50);
+    setTimeout(triggerCenterOrigin, 150);
+    setTimeout(triggerCenterOrigin, 300);
+    setTimeout(triggerCenterOrigin, 600);
 
     window.addEventListener('load', () => {
-      triggerInitialFit();
-      setTimeout(triggerInitialFit, 100);
+      triggerCenterOrigin();
+      setTimeout(triggerCenterOrigin, 100);
     });
   });
 
