@@ -8096,9 +8096,15 @@
       // Active Tab & Display Mode
       if (data.activeTab && (data.activeTab === 'vector' || data.activeTab === 'datum' || data.activeTab === 'planning')) {
         state.activeTab = data.activeTab;
+      } else {
+        state.activeTab = 'vector';
       }
-      if (data.displayMode && (data.displayMode === 'grid' || data.displayMode === 'map')) {
-        state.displayMode = data.displayMode;
+
+      // Pastikan displayMode sentiasa sepadan dengan activeTab
+      if (state.activeTab === 'vector') {
+        state.displayMode = 'grid';
+      } else {
+        state.displayMode = 'map';
       }
 
       return true;
@@ -8439,9 +8445,11 @@
 
   function drawChart() {
     if (state.displayMode !== 'grid') return;
+    if (!el.canvasWrapper || !el.canvas || !ctx) return;
     const rect = el.canvasWrapper.getBoundingClientRect();
     const width = rect.width;
     const height = rect.height;
+    if (width <= 0 || height <= 0) return;
 
     ctx.clearRect(0, 0, width, height);
 
@@ -8602,7 +8610,9 @@
     else if (rawStep <= 20) stepNM = 20;
     else stepNM = 50;
 
-    el.chartScaleIndicator.textContent = `1 petak = ${stepNM} NM`;
+    if (el.chartScaleIndicator) {
+      el.chartScaleIndicator.textContent = `1 petak = ${stepNM} NM`;
+    }
 
     const stepPx = stepNM * ppm;
 
@@ -10985,7 +10995,10 @@
     const hasRestoredState = loadAppState();
     setupEventListeners();
     initTheme();
-    resizeCanvas();
+
+    const activeTab = state.activeTab || 'vector';
+    switchTab(activeTab);
+
     updateDistancePreview();
     updateAswDistancePreview();
     updateWcDistancePreview();
@@ -11042,9 +11055,12 @@
     generateSearchPatternWaypoints();
     updateFlowButtonsUI();
     syncMapOverlaysVisibility();
-    switchTab(state.activeTab || 'vector');
 
     // Jaminan render graf awal pada permulaan muat turun halaman
+    if (state.displayMode === 'grid') {
+      resizeCanvas();
+    }
+
     requestAnimationFrame(() => {
       if (state.displayMode === 'grid') {
         resizeCanvas();
@@ -11054,7 +11070,7 @@
       if (state.displayMode === 'grid') {
         resizeCanvas();
       }
-    }, 60);
+    }, 50);
     setTimeout(() => {
       if (state.displayMode === 'grid') {
         resizeCanvas();
