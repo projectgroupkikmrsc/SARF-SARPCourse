@@ -1272,6 +1272,11 @@
                           <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
                           <span>🌐 Auto Muat Turun Arus Laut dari Satelit</span>
                         </button>
+
+                        <button type="button" id="btn-open-tidal-modal" class="btn btn-outline" style="width: 100%; border-color: rgba(56, 189, 248, 0.4); color: #38bdf8; font-weight: 700; margin-top: 0.45rem; justify-content: center; font-size: 0.8rem; padding: 0.5rem 0.5rem;" title="Buka modul penganggar & muat turun Arus Pasang Surut (Tidal Current) mengikut stesen">
+                          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2"><path d="M2 12c.6 0 1.2-.4 1.4-1 .8-2.3 3-4 5.6-4s4.8 1.7 5.6 4c.2.6.8 1 1.4 1s1.2-.4 1.4-1c.8-2.3 3-4 5.6-4s4.8 1.7 5.6 4c.2.6.8 1 1.4 1"/><path d="M2 18c.6 0 1.2-.4 1.4-1 .8-2.3 3-4 5.6-4s4.8 1.7 5.6 4c.2.6.8 1 1.4 1s1.2-.4 1.4-1c.8-2.3 3-4 5.6-4s4.8 1.7 5.6 4c.2.6.8 1 1.4 1"/></svg>
+                          <span>🌀 Auto-Fetch Pasang Surut Stesen (TC)</span>
+                        </button>
                       </form>
                     </section>
 
@@ -3394,6 +3399,24 @@
     </div>
   </div>
 
+  <!-- =========================================================
+       MODAL: AUTO-FETCH & KALKULATOR ARUS PASANG SURUT (TC)
+       ========================================================= -->
+  <div class="iamsar-modal-overlay" id="modal-tidal-current">
+    <div class="iamsar-modal-container" style="max-width: 680px;">
+      <div class="iamsar-modal-header">
+        <h3>
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" fill="none" stroke-width="2"><path d="M2 12c.6 0 1.2-.4 1.4-1 .8-2.3 3-4 5.6-4s4.8 1.7 5.6 4c.2.6.8 1 1.4 1s1.2-.4 1.4-1c.8-2.3 3-4 5.6-4s4.8 1.7 5.6 4c.2.6.8 1 1.4 1"/><path d="M2 18c.6 0 1.2-.4 1.4-1 .8-2.3 3-4 5.6-4s4.8 1.7 5.6 4c.2.6.8 1 1.4 1s1.2-.4 1.4-1c.8-2.3 3-4 5.6-4s4.8 1.7 5.6 4c.2.6.8 1 1.4 1"/></svg>
+          <span>Modul Arus Pasang Surut Stesen (Tidal Current - TC)</span>
+        </h3>
+        <button type="button" class="drawer-close-btn" id="btn-close-tidal-modal" title="Tutup Modal">&times;</button>
+      </div>
+      <div class="iamsar-modal-body" id="tidal-modal-body" style="padding: 1.1rem 1.25rem;">
+        <!-- Injected via JavaScript -->
+      </div>
+    </div>
+  </div>
+
   <!-- Leaflet.js JS with Fallback -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <script>
@@ -3402,7 +3425,7 @@
     }
   </script>
   <!-- Script Utama -->
-  <script src="app.js?v=3.2"></script>
+  <script src="app.js?v=3.3"></script>
   <script>
     (function() {
       try {

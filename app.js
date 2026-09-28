@@ -962,6 +962,10 @@
     modalMetocean: document.getElementById('modal-metocean'),
     btnCloseMetoceanModal: document.getElementById('btn-close-metocean-modal'),
     metoceanModalBody: document.getElementById('metocean-modal-body'),
+    btnOpenTidalModal: document.getElementById('btn-open-tidal-modal'),
+    modalTidalCurrent: document.getElementById('modal-tidal-current'),
+    btnCloseTidalModal: document.getElementById('btn-close-tidal-modal'),
+    tidalModalBody: document.getElementById('tidal-modal-body'),
     
     // Average Surface Wind (ASW)
     aswBearingInput: document.getElementById('asw-bearing-input'),
@@ -5269,6 +5273,355 @@
   }
 
   // =========================================================================
+  // MODUL ARUS PASANG SURUT KHUSUS STESEN MALAYSIA (TIDAL CURRENT - TC)
+  // =========================================================================
+
+  const MALAYSIA_TIDAL_STATIONS = [
+    // Pantai Timur (MRSC Kuantan)
+    { id: 'kuantan', name: 'Pelabuhan Kuantan, Pahang', lat: 3.978, lon: 103.428, region: 'Pantai Timur', floodBearing: 350, ebbBearing: 170, maxSpringSpeed: 2.2, maxNeapSpeed: 1.1, type: 'diurnal' },
+    { id: 'kemaman', name: 'Pelabuhan Kemaman, Terengganu', lat: 4.250, lon: 103.450, region: 'Pantai Timur', floodBearing: 350, ebbBearing: 170, maxSpringSpeed: 2.0, maxNeapSpeed: 1.0, type: 'diurnal' },
+    { id: 'kuala_terengganu', name: 'Kuala Terengganu (Chendering), Terengganu', lat: 5.267, lon: 103.183, region: 'Pantai Timur', floodBearing: 345, ebbBearing: 165, maxSpringSpeed: 1.8, maxNeapSpeed: 0.9, type: 'diurnal' },
+    { id: 'tioman', name: 'Pulau Tioman (Tekek), Pahang', lat: 2.817, lon: 104.150, region: 'Pantai Timur', floodBearing: 340, ebbBearing: 160, maxSpringSpeed: 1.5, maxNeapSpeed: 0.8, type: 'mixed' },
+    { id: 'geting', name: 'Geting / Tumpat, Kelantan', lat: 6.233, lon: 102.100, region: 'Pantai Timur', floodBearing: 330, ebbBearing: 150, maxSpringSpeed: 1.6, maxNeapSpeed: 0.8, type: 'diurnal' },
+    { id: 'sedili', name: 'Tanjung Sedili, Johor Timur', lat: 1.917, lon: 104.117, region: 'Pantai Timur', floodBearing: 355, ebbBearing: 175, maxSpringSpeed: 2.1, maxNeapSpeed: 1.0, type: 'semi-diurnal' },
+    { id: 'mersing', name: 'Mersing, Johor Timur', lat: 2.433, lon: 103.833, region: 'Pantai Timur', floodBearing: 350, ebbBearing: 170, maxSpringSpeed: 1.9, maxNeapSpeed: 0.9, type: 'mixed' },
+
+    // Pantai Barat (Selat Melaka)
+    { id: 'pkla', name: 'Pelabuhan Klang (Port Klang), Selangor', lat: 2.999, lon: 101.392, region: 'Selat Melaka', floodBearing: 135, ebbBearing: 315, maxSpringSpeed: 3.2, maxNeapSpeed: 1.6, type: 'semi-diurnal' },
+    { id: 'penang', name: 'Pulau Pinang (Georgetown)', lat: 5.417, lon: 100.350, region: 'Selat Melaka', floodBearing: 170, ebbBearing: 350, maxSpringSpeed: 2.5, maxNeapSpeed: 1.3, type: 'semi-diurnal' },
+    { id: 'langkawi', name: 'Pulau Langkawi (Kuah), Kedah', lat: 6.317, lon: 99.850, region: 'Selat Melaka', floodBearing: 80, ebbBearing: 260, maxSpringSpeed: 2.0, maxNeapSpeed: 1.0, type: 'semi-diurnal' },
+    { id: 'lumut', name: 'Lumut / Teluk Batik, Perak', lat: 4.233, lon: 100.617, region: 'Selat Melaka', floodBearing: 140, ebbBearing: 320, maxSpringSpeed: 2.4, maxNeapSpeed: 1.2, type: 'semi-diurnal' },
+    { id: 'melaka', name: 'Pelabuhan Tanjung Bruas / Melaka', lat: 2.200, lon: 102.150, region: 'Selat Melaka', floodBearing: 130, ebbBearing: 310, maxSpringSpeed: 2.6, maxNeapSpeed: 1.4, type: 'semi-diurnal' },
+    { id: 'kukup', name: 'Kukup / Tanjung Piai, Johor', lat: 1.317, lon: 103.450, region: 'Selat Melaka', floodBearing: 120, ebbBearing: 300, maxSpringSpeed: 2.8, maxNeapSpeed: 1.5, type: 'semi-diurnal' },
+    { id: 'johor_bahru', name: 'Johor Bahru (Selat Johor), Johor', lat: 1.450, lon: 103.767, region: 'Selat Melaka', floodBearing: 90, ebbBearing: 270, maxSpringSpeed: 2.2, maxNeapSpeed: 1.1, type: 'semi-diurnal' },
+
+    // Sarawak & Sabah
+    { id: 'kuching', name: 'Muara Tebas / Kuching, Sarawak', lat: 1.567, lon: 110.483, region: 'Sarawak', floodBearing: 190, ebbBearing: 10, maxSpringSpeed: 3.5, maxNeapSpeed: 1.8, type: 'semi-diurnal' },
+    { id: 'bintulu', name: 'Pelabuhan Bintulu, Sarawak', lat: 3.250, lon: 113.067, region: 'Sarawak', floodBearing: 70, ebbBearing: 250, maxSpringSpeed: 2.0, maxNeapSpeed: 1.0, type: 'mixed' },
+    { id: 'miri', name: 'Miri, Sarawak', lat: 4.383, lon: 113.967, region: 'Sarawak', floodBearing: 45, ebbBearing: 225, maxSpringSpeed: 1.8, maxNeapSpeed: 0.9, type: 'mixed' },
+    { id: 'labuan', name: 'Wilayah Persekutuan Labuan (Victoria)', lat: 5.283, lon: 115.250, region: 'Sabah & WP', floodBearing: 30, ebbBearing: 210, maxSpringSpeed: 2.4, maxNeapSpeed: 1.2, type: 'mixed' },
+    { id: 'kota_kinabalu', name: 'Kota Kinabalu, Sabah', lat: 5.983, lon: 116.083, region: 'Sabah & WP', floodBearing: 30, ebbBearing: 210, maxSpringSpeed: 1.9, maxNeapSpeed: 0.9, type: 'mixed' },
+    { id: 'sandakan', name: 'Pelabuhan Sandakan, Sabah', lat: 5.833, lon: 118.117, region: 'Sabah & WP', floodBearing: 240, ebbBearing: 60, maxSpringSpeed: 2.5, maxNeapSpeed: 1.3, type: 'semi-diurnal' },
+    { id: 'tawau', name: 'Pelabuhan Tawau, Sabah', lat: 4.250, lon: 117.883, region: 'Sabah & WP', floodBearing: 290, ebbBearing: 110, maxSpringSpeed: 3.0, maxNeapSpeed: 1.5, type: 'semi-diurnal' }
+  ];
+
+  let currentTidalCalculation = null;
+
+  function findNearestTidalStation(targetLat, targetLon) {
+    if (isNaN(targetLat) || isNaN(targetLon)) return { station: MALAYSIA_TIDAL_STATIONS[0], distanceNM: 0 };
+    let nearest = MALAYSIA_TIDAL_STATIONS[0];
+    let minDistance = Infinity;
+
+    MALAYSIA_TIDAL_STATIONS.forEach(st => {
+      const d = calculateHaversineDistance(targetLat, targetLon, st.lat, st.lon);
+      if (d < minDistance) {
+        minDistance = d;
+        nearest = st;
+      }
+    });
+
+    return { station: nearest, distanceNM: minDistance };
+  }
+
+  function computeMultiDayTidalStreamSeries(station, startDate, durationHours, customFlood = null, customEbb = null, customSpring = null, customNeap = null) {
+    const floodDir = customFlood !== null ? customFlood : station.floodBearing;
+    const ebbDir = customEbb !== null ? customEbb : station.ebbBearing;
+    const spdSpring = customSpring !== null ? customSpring : station.maxSpringSpeed;
+    const spdNeap = customNeap !== null ? customNeap : station.maxNeapSpeed;
+
+    const dur = Math.max(1, Math.round(durationHours));
+    const isSemi = station.type === 'semi-diurnal';
+    const periodHours = isSemi ? 12.42 : (station.type === 'diurnal' ? 24.84 : 12.42);
+
+    const startTimestamp = startDate.getTime();
+    const daysSinceEpoch = startTimestamp / 86400000;
+    const springNeapPhase = Math.sin(((daysSinceEpoch % 14.765) / 14.765) * Math.PI);
+    const maxCurrentSpeed = spdNeap + (spdSpring - spdNeap) * Math.abs(springNeapPhase);
+
+    const hourlyRecords = [];
+    let totalDx = 0;
+    let totalDy = 0;
+
+    for (let h = 0; h < dur; h++) {
+      const tHour = (startTimestamp + h * 3600000) / 3600000;
+      const tidalAngle = ((tHour % periodHours) / periodHours) * 2 * Math.PI;
+      const streamFactor = Math.sin(tidalAngle);
+
+      let speed = Math.abs(streamFactor) * maxCurrentSpeed;
+      let bearing = streamFactor >= 0 ? floodDir : ebbDir;
+      let phaseLabel = 'Slack (Tenang)';
+      if (Math.abs(streamFactor) > 0.15) {
+        phaseLabel = streamFactor > 0 ? 'Pasang (Flood)' : 'Surut (Ebb)';
+      }
+
+      const { dx, dy } = calculateComponents(bearing, speed);
+      totalDx += dx;
+      totalDy += dy;
+
+      hourlyRecords.push({
+        hourIndex: h + 1,
+        timeStr: new Date(startTimestamp + h * 3600000).toISOString().replace('T', ' ').slice(0, 16),
+        speed: Math.round(speed * 100) / 100,
+        bearing: Math.round(bearing),
+        phase: phaseLabel,
+        dx,
+        dy
+      });
+    }
+
+    const resultantDist = Math.hypot(totalDx, totalDy);
+    const avgSpeed = dur > 0 ? (resultantDist / dur) : 0;
+    const avgBearing = dur > 0 && resultantDist > 0.001 ? cartesianToNauticalBearing(totalDx, totalDy) : floodDir;
+
+    return {
+      station,
+      durationHours: dur,
+      maxCurrentSpeed,
+      hourlyRecords,
+      resultant: {
+        bearing: Math.round(avgBearing),
+        speed: Math.round(avgSpeed * 100) / 100,
+        totalDist: Math.round(resultantDist * 100) / 100,
+        dx: totalDx,
+        dy: totalDy,
+        twcE: 0.25
+      }
+    };
+  }
+
+  function openTidalModal() {
+    if (!el.modalTidalCurrent) return;
+    renderTidalModalContent();
+    el.modalTidalCurrent.classList.add('active');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeTidalModal() {
+    if (!el.modalTidalCurrent) return;
+    el.modalTidalCurrent.classList.remove('active');
+    document.body.style.overflow = '';
+  }
+
+  function renderTidalModalContent(selectedStationId = null) {
+    if (!el.tidalModalBody) return;
+
+    let lat = parseCoordinate(el.originLatInput ? el.originLatInput.value : '', true);
+    let lon = parseCoordinate(el.originLonInput ? el.originLonInput.value : '', false);
+    if (isNaN(lat) || isNaN(lon)) {
+      lat = state.originGeo.lat || DEFAULT_ORIGIN_GEO.lat;
+      lon = state.originGeo.lon || DEFAULT_ORIGIN_GEO.lon;
+    }
+
+    const nearestData = findNearestTidalStation(lat, lon);
+    const stationId = selectedStationId || nearestData.station.id;
+    const currentStation = MALAYSIA_TIDAL_STATIONS.find(s => s.id === stationId) || nearestData.station;
+
+    const distressVal = el.distressDateTimeInput ? el.distressDateTimeInput.value : '';
+    const datumVal = el.datumDateTimeInput ? el.datumDateTimeInput.value : '';
+    let startDate = distressVal ? new Date(distressVal) : new Date();
+    let endDate = datumVal ? new Date(datumVal) : new Date(startDate.getTime() + 86400000 * 4); // Lalai: 4 hari
+
+    if (isNaN(startDate.getTime())) startDate = new Date();
+    if (isNaN(endDate.getTime()) || endDate <= startDate) {
+      endDate = new Date(startDate.getTime() + 86400000 * 4);
+    }
+
+    const diffHours = Math.max(1, Math.round(((endDate.getTime() - startDate.getTime()) / 3600000) * 10) / 10);
+    const diffDays = (diffHours / 24.0).toFixed(1);
+
+    const calcResult = computeMultiDayTidalStreamSeries(currentStation, startDate, diffHours);
+    currentTidalCalculation = calcResult;
+
+    const regions = ['Pantai Timur', 'Selat Melaka', 'Sarawak', 'Sabah & WP'];
+
+    const html = `
+      <div style="display: flex; flex-direction: column; gap: 0.85rem; font-family: 'Outfit', sans-serif;">
+        <!-- Header Info Card -->
+        <div style="background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: var(--radius-sm); padding: 0.65rem 0.85rem; font-size: 0.78rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.4rem;">
+          <div>
+            <span style="color: var(--text-muted);">Lokasi LKP:</span> <strong>${formatCoordinate(lat, true)} | ${formatCoordinate(lon, false)}</strong>
+          </div>
+          <div>
+            <span style="color: var(--text-muted);">Sela Operasi SAR:</span> <strong>${diffHours} Jam (~${diffDays} Hari)</strong>
+          </div>
+        </div>
+
+        <!-- Pemilihan Stesen Pasang Surut -->
+        <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.75rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; flex-wrap: wrap; gap: 0.3rem;">
+            <label for="tidal-station-select" style="font-weight: 700; font-size: 0.8rem; color: #38bdf8;">
+              Pilih Stesen Pasang Surut Rasmi:
+            </label>
+            <button type="button" id="btn-detect-nearest-station" class="btn btn-outline" style="font-size: 0.72rem; padding: 0.25rem 0.55rem; color: #34d399; border-color: rgba(52, 211, 153, 0.4);" title="Auto-kesan stesen terdekat dari koordinat LKP">
+              🎯 Stesen Terdekat (${nearestData.station.name.split(',')[0]} - ${nearestData.distanceNM.toFixed(1)} NM)
+            </button>
+          </div>
+          <select id="tidal-station-select" class="input-select" style="width: 100%; background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-main); padding: 0.45rem 0.65rem; border-radius: var(--radius-sm); font-family: inherit; font-size: 0.8rem; font-weight: 600;">
+            ${regions.map(reg => `
+              <optgroup label="📍 Zon ${reg}">
+                ${MALAYSIA_TIDAL_STATIONS.filter(s => s.region === reg).map(s => `
+                  <option value="${s.id}" ${s.id === currentStation.id ? 'selected' : ''}>
+                    ${s.name} (${s.type === 'semi-diurnal' ? 'Semi-Diurnal 12j' : 'Diurnal 24j'})
+                  </option>
+                `).join('')}
+              </optgroup>
+            `).join('')}
+          </select>
+        </div>
+
+        <!-- Parameter Aliran Pasang Surut (Paksi Flood & Ebb) -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.45rem;">
+          <div style="background: rgba(14, 165, 233, 0.06); border: 1px solid rgba(14, 165, 233, 0.2); border-radius: var(--radius-sm); padding: 0.45rem 0.6rem;">
+            <span style="font-size: 0.68rem; color: var(--text-muted); display: block;">Arah Pasang (Flood):</span>
+            <strong style="font-size: 0.85rem; color: #38bdf8;">${String(currentStation.floodBearing).padStart(3, '0')}°T</strong>
+          </div>
+          <div style="background: rgba(167, 139, 250, 0.06); border: 1px solid rgba(167, 139, 250, 0.2); border-radius: var(--radius-sm); padding: 0.45rem 0.6rem;">
+            <span style="font-size: 0.68rem; color: var(--text-muted); display: block;">Arah Surut (Ebb):</span>
+            <strong style="font-size: 0.85rem; color: #a78bfa;">${String(currentStation.ebbBearing).padStart(3, '0')}°T</strong>
+          </div>
+          <div style="background: rgba(52, 211, 153, 0.06); border: 1px solid rgba(52, 211, 153, 0.2); border-radius: var(--radius-sm); padding: 0.45rem 0.6rem;">
+            <span style="font-size: 0.68rem; color: var(--text-muted); display: block;">Puncak Arus Spring:</span>
+            <strong style="font-size: 0.85rem; color: #34d399;">${currentStation.maxSpringSpeed.toFixed(1)} kts</strong>
+          </div>
+          <div style="background: rgba(251, 191, 36, 0.06); border: 1px solid rgba(251, 191, 36, 0.2); border-radius: var(--radius-sm); padding: 0.45rem 0.6rem;">
+            <span style="font-size: 0.68rem; color: var(--text-muted); display: block;">Puncak Arus Neap:</span>
+            <strong style="font-size: 0.85rem; color: #fbbf24;">${currentStation.maxNeapSpeed.toFixed(1)} kts</strong>
+          </div>
+        </div>
+
+        <!-- Ringkasan Paduan Bersih TC (Resultant Drift) -->
+        <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.75rem;">
+          <h4 style="margin: 0 0 0.35rem 0; font-size: 0.78rem; color: #38bdf8; display: flex; justify-content: space-between; align-items: center;">
+            <span>Paduan Bersih Arus Pasang Surut (${diffHours} Jam / ${diffDays} Hari):</span>
+            <span style="color: #34d399; font-weight: 800;">${calcResult.hourlyRecords.length} Titik Jam</span>
+          </h4>
+          <div class="metocean-stat-grid" style="grid-template-columns: repeat(3, 1fr); margin-top: 0.4rem;">
+            <div class="metocean-stat-card" style="padding: 0.45rem;">
+              <div class="metocean-stat-title">Arah Paduan (Set)</div>
+              <div class="metocean-stat-value" style="font-size: 0.95rem;">${formatNauticalBearing(calcResult.resultant.bearing)}</div>
+            </div>
+            <div class="metocean-stat-card" style="padding: 0.45rem;">
+              <div class="metocean-stat-title">Purata Kelajuan</div>
+              <div class="metocean-stat-value" style="font-size: 0.95rem; color: #34d399;">${calcResult.resultant.speed.toFixed(2)} kts</div>
+            </div>
+            <div class="metocean-stat-card" style="padding: 0.45rem;">
+              <div class="metocean-stat-title">Anjakan Bersih (Net)</div>
+              <div class="metocean-stat-value" style="font-size: 0.95rem; color: #a78bfa;">${calcResult.resultant.totalDist.toFixed(2)} NM</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Jadual Ringkasan Mengikut Jam -->
+        <div>
+          <h4 style="margin: 0 0 0.3rem 0; font-size: 0.76rem; color: var(--text-muted);">Pratonton Arus Mengikut Jam (Hourly Tidal Stream Breakdown):</h4>
+          <div class="iamsar-table-responsive" style="max-height: 120px; overflow-y: auto;">
+            <table class="iamsar-data-table" style="font-size: 0.72rem;">
+              <thead>
+                <tr>
+                  <th>Jam</th>
+                  <th>Waktu</th>
+                  <th>Fasa Pasang/Surut</th>
+                  <th>Arah Aliran</th>
+                  <th>Kelajuan (kts)</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${calcResult.hourlyRecords.slice(0, 48).map(r => `
+                  <tr>
+                    <td>T+${r.hourIndex}j</td>
+                    <td>${r.timeStr}</td>
+                    <td style="color: ${r.phase.includes('Flood') ? '#38bdf8' : (r.phase.includes('Ebb') ? '#a78bfa' : '#94a3b8')}; font-weight: 600;">${r.phase}</td>
+                    <td>${formatNauticalBearing(r.bearing)}</td>
+                    <td style="font-weight: 700;">${r.speed.toFixed(2)} kts</td>
+                  </tr>
+                `).join('')}
+                ${calcResult.hourlyRecords.length > 48 ? `<tr><td colspan="5" style="text-align:center; color: var(--text-muted);">... dan ${calcResult.hourlyRecords.length - 48} jam seterusnya ...</td></tr>` : ''}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Footer Actions -->
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.3rem;">
+          <button type="button" class="btn btn-outline" id="btn-cancel-tidal-modal" style="padding: 0.45rem 0.85rem; font-size: 0.78rem;">
+            <span>Batal</span>
+          </button>
+          <button type="button" class="btn btn-primary" id="btn-apply-tidal-to-twc" style="padding: 0.45rem 1.1rem; font-size: 0.78rem; background: #38bdf8; color: #0f172a; font-weight: 800;">
+            <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            <span>Terapkan ke Vektor TWC (TC)</span>
+          </button>
+        </div>
+      </div>
+    `;
+
+    el.tidalModalBody.innerHTML = html;
+
+    const stationSelect = document.getElementById('tidal-station-select');
+    if (stationSelect) {
+      stationSelect.addEventListener('change', (e) => {
+        renderTidalModalContent(e.target.value);
+      });
+    }
+
+    const btnDetect = document.getElementById('btn-detect-nearest-station');
+    if (btnDetect) {
+      btnDetect.addEventListener('click', () => {
+        renderTidalModalContent(nearestData.station.id);
+      });
+    }
+
+    const btnCancel = document.getElementById('btn-cancel-tidal-modal');
+    if (btnCancel) {
+      btnCancel.addEventListener('click', closeTidalModal);
+    }
+
+    const btnApply = document.getElementById('btn-apply-tidal-to-twc');
+    if (btnApply) {
+      btnApply.addEventListener('click', () => {
+        applyTidalResultToTwc();
+      });
+    }
+  }
+
+  function applyTidalResultToTwc() {
+    if (!currentTidalCalculation) return;
+
+    const res = currentTidalCalculation.resultant;
+    const station = currentTidalCalculation.station;
+
+    // Masukkan ke dalam input borang SC / TWC
+    if (el.scTypeSelect) el.scTypeSelect.value = 'TC';
+    if (el.scBearingInput) el.scBearingInput.value = Math.round(res.bearing).toString().padStart(3, '0');
+    if (el.scSpeedInput) el.scSpeedInput.value = res.speed.toFixed(2);
+    if (el.scVectorEInput) el.scVectorEInput.value = '0.25';
+
+    // Tambah vektor TC ke dalam state.scVectors
+    state.scVectors.push({
+      id: Date.now() + Math.random(),
+      index: state.scVectors.length + 1,
+      type: 'TC',
+      bearing: ((res.bearing % 360) + 360) % 360,
+      speed: res.speed,
+      dx: res.dx / Math.max(1, currentTidalCalculation.durationHours),
+      dy: res.dy / Math.max(1, currentTidalCalculation.durationHours),
+      errorE: 0.25,
+      sourceStation: station.name
+    });
+
+    state.isScCalculated = true;
+    calculateScResultant();
+    calculateFinalDatum(true);
+
+    if (state.displayMode === 'map') {
+      updateLeafletMap();
+    }
+    saveAppState();
+
+    closeTidalModal();
+    showToast(`🌊 Vektor Tidal Current (TC) dari ${station.name.split(',')[0]} (${res.speed.toFixed(2)} kts @ ${Math.round(res.bearing)}°) berjaya diterapkan ke TWC!`);
+  }
+
+  // =========================================================================
   // METOCEAN DATA AUTO-FETCH (OPEN-METEO WEATHER & MARINE SATELLITE API)
   // =========================================================================
 
@@ -8461,6 +8814,27 @@
       el.modalMetocean.addEventListener('click', (e) => {
         if (e.target === el.modalMetocean) {
           closeMetoceanModal();
+        }
+      });
+    }
+
+    // Butang & Modal Arus Pasang Surut (Tidal Current - TC)
+    if (el.btnOpenTidalModal) {
+      el.btnOpenTidalModal.addEventListener('click', () => {
+        openTidalModal();
+      });
+    }
+
+    if (el.btnCloseTidalModal) {
+      el.btnCloseTidalModal.addEventListener('click', () => {
+        closeTidalModal();
+      });
+    }
+
+    if (el.modalTidalCurrent) {
+      el.modalTidalCurrent.addEventListener('click', (e) => {
+        if (e.target === el.modalTidalCurrent) {
+          closeTidalModal();
         }
       });
     }
